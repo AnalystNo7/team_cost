@@ -1,7 +1,7 @@
 import React from 'react'
-import { Card, Descriptions, Typography, Divider, Table, Tag } from 'antd'
+import { Card, Descriptions, Typography, Table, Tag } from 'antd'
 
-const { Title, Text, Paragraph } = Typography
+const { Title, Paragraph } = Typography
 
 const Settings: React.FC = () => {
   const taxRates = [

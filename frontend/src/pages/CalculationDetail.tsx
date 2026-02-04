@@ -2,16 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Card,
-  Tabs,
   Button,
   Space,
   Spin,
   message,
   Collapse,
   Select,
-  Row,
-  Col,
-  Statistic,
   Typography,
   DatePicker,
   Modal,
@@ -20,7 +16,6 @@ import {
 } from 'antd'
 import {
   ArrowLeftOutlined,
-  DownloadOutlined,
   PlusOutlined,
   FilePdfOutlined,
   FileExcelOutlined,
@@ -46,7 +41,6 @@ import type {
   RateCategory,
   WorkCalendarEntry,
   CostCalculationResult,
-  StageType,
 } from '../types'
 import { WATERFALL_STAGES, AGILE_STAGES, STAGE_NAMES } from '../types'
 import WorkflowDiagram from '../components/WorkflowDiagram'
@@ -287,7 +281,7 @@ const CalculationDetail: React.FC = () => {
         >
           <Collapse
             accordion
-            items={stages.map((stage, index) => ({
+            items={stages.map((stage) => ({
               key: stage.id,
               label: (
                 <Space>

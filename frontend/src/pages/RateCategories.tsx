@@ -189,7 +189,7 @@ const RateCategories: React.FC = () => {
               min={0}
               step={100}
               formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-              parser={v => Number(v?.replace(/\s/g, '') || 0)}
+              parser={v => Number(v?.replace(/\s/g, '') || 0) as unknown as 0}
             />
           </Form.Item>
         </Form>

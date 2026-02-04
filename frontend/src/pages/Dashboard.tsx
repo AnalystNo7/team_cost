@@ -14,7 +14,6 @@ const { Title, Text } = Typography
 const Dashboard: React.FC = () => {
   const navigate = useNavigate()
   const [calculations, setCalculations] = useState<Calculation[]>([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadCalculations()
@@ -26,8 +25,6 @@ const Dashboard: React.FC = () => {
       setCalculations(response.data)
     } catch (error) {
       console.error('Failed to load calculations:', error)
-    } finally {
-      setLoading(false)
     }
   }
 

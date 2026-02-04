@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import {
   Table,
   InputNumber,
@@ -72,7 +72,7 @@ const AllocationTable: React.FC<AllocationTableProps> = ({
       dataIndex: 'role_id',
       key: 'role',
       width: 180,
-      render: (roleId: number, record: StageAllocation) => {
+      render: (roleId: number) => {
         const role = roles.find(r => r.id === roleId)
         return role?.name || '-'
       },
@@ -89,18 +89,15 @@ const AllocationTable: React.FC<AllocationTableProps> = ({
       dataIndex: 'rate_category_id',
       key: 'rate_category',
       width: 80,
-      render: (catId: number, record: StageAllocation) => {
-        const cat = rateCategories.find(c => c.id === catId)
-        return (
-          <Select
-            size="small"
-            style={{ width: 70 }}
-            value={catId}
-            onChange={value => onUpdate(record.id!, { rate_category_id: value })}
-            options={rateCategories.map(c => ({ value: c.id, label: c.code }))}
-          />
-        )
-      },
+      render: (catId: number, record: StageAllocation) => (
+        <Select
+          size="small"
+          style={{ width: 70 }}
+          value={catId}
+          onChange={value => onUpdate(record.id!, { rate_category_id: value })}
+          options={rateCategories.map(c => ({ value: c.id, label: c.code }))}
+        />
+      ),
     },
     {
       title: 'ЗП (мес)',
