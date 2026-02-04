@@ -7,21 +7,21 @@ interface CostSummaryProps {
   result: CostCalculationResult
 }
 
-const formatCurrency = (value: number) =>
+const formatCurrency = (value: number | string) =>
   new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: 'RUB',
     maximumFractionDigits: 0,
-  }).format(value)
+  }).format(Number(value) || 0)
 
 const CostSummary: React.FC<CostSummaryProps> = ({ result }) => {
   const stageColumns = [
     { title: 'Этап', dataIndex: 'stage_name', key: 'name' },
     { title: 'Период', key: 'period', render: (_: unknown, r: typeof result.stages[0]) => `${r.start_month} — ${r.end_month}` },
-    { title: 'Себестоимость', dataIndex: 'total_cost', key: 'cost', render: (v: number) => formatCurrency(v) },
-    { title: 'Выручка', dataIndex: 'total_revenue', key: 'revenue', render: (v: number) => formatCurrency(v) },
-    { title: 'Маржа', dataIndex: 'total_margin', key: 'margin', render: (v: number) => formatCurrency(v) },
-    { title: 'Маржа %', dataIndex: 'margin_percent', key: 'margin_pct', render: (v: number | null) => v ? `${v.toFixed(1)}%` : '-' },
+    { title: 'Себестоимость', dataIndex: 'total_cost', key: 'cost', render: (v: number | string) => formatCurrency(v) },
+    { title: 'Выручка', dataIndex: 'total_revenue', key: 'revenue', render: (v: number | string) => formatCurrency(v) },
+    { title: 'Маржа', dataIndex: 'total_margin', key: 'margin', render: (v: number | string) => formatCurrency(v) },
+    { title: 'Маржа %', dataIndex: 'margin_percent', key: 'margin_pct', render: (v: number | string | null) => v ? `${Number(v).toFixed(1)}%` : '-' },
   ]
 
   const roleData = Object.entries(result.cost_by_role).map(([role, cost]) => ({
@@ -32,22 +32,22 @@ const CostSummary: React.FC<CostSummaryProps> = ({ result }) => {
 
   const roleColumns = [
     { title: 'Роль', dataIndex: 'role', key: 'role' },
-    { title: 'Себестоимость', dataIndex: 'cost', key: 'cost', render: (v: number) => formatCurrency(v) },
+    { title: 'Себестоимость', dataIndex: 'cost', key: 'cost', render: (v: number | string) => formatCurrency(v) },
   ]
 
   const monthData = Object.keys(result.cost_by_month).map(month => ({
     key: month,
     month,
-    cost: result.cost_by_month[month],
-    revenue: result.revenue_by_month[month] || 0,
-    margin: (result.revenue_by_month[month] || 0) - result.cost_by_month[month],
+    cost: Number(result.cost_by_month[month]) || 0,
+    revenue: Number(result.revenue_by_month[month]) || 0,
+    margin: (Number(result.revenue_by_month[month]) || 0) - (Number(result.cost_by_month[month]) || 0),
   }))
 
   const monthColumns = [
     { title: 'Месяц', dataIndex: 'month', key: 'month' },
-    { title: 'Себестоимость', dataIndex: 'cost', key: 'cost', render: (v: number) => formatCurrency(v) },
-    { title: 'Выручка', dataIndex: 'revenue', key: 'revenue', render: (v: number) => formatCurrency(v) },
-    { title: 'Маржа', dataIndex: 'margin', key: 'margin', render: (v: number) => formatCurrency(v) },
+    { title: 'Себестоимость', dataIndex: 'cost', key: 'cost', render: (v: number | string) => formatCurrency(v) },
+    { title: 'Выручка', dataIndex: 'revenue', key: 'revenue', render: (v: number | string) => formatCurrency(v) },
+    { title: 'Маржа', dataIndex: 'margin', key: 'margin', render: (v: number | string) => formatCurrency(v) },
   ]
 
   const marginColor = result.total_margin >= 0 ? '#3f8600' : '#cf1322'
