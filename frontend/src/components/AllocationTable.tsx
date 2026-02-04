@@ -60,9 +60,17 @@ const AllocationTable: React.FC<AllocationTableProps> = ({
   }
 
   const handleFteChange = (allocation: StageAllocation, yearMonth: string, value: number | null) => {
-    const updatedFte = allocation.monthly_fte.map(f =>
-      f.year_month === yearMonth ? { ...f, fte_value: value || 0 } : f
-    )
+    const existingFte = allocation.monthly_fte || []
+    const found = existingFte.find(f => f.year_month === yearMonth)
+
+    let updatedFte
+    if (found) {
+      updatedFte = existingFte.map(f =>
+        f.year_month === yearMonth ? { ...f, fte_value: value || 0 } : f
+      )
+    } else {
+      updatedFte = [...existingFte, { year_month: yearMonth, fte_value: value || 0 }]
+    }
     onUpdate(allocation.id!, { monthly_fte: updatedFte })
   }
 
