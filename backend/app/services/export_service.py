@@ -2,6 +2,7 @@
 Export Service for Excel and PDF reports
 """
 import io
+import os
 from decimal import Decimal
 from typing import Any
 from openpyxl import Workbook
@@ -16,6 +17,36 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 from app.schemas.cost import CostCalculationResult
+
+# Register Cyrillic font
+_font_registered = False
+
+def register_cyrillic_font():
+    """Register a font that supports Cyrillic characters"""
+    global _font_registered
+    if _font_registered:
+        return
+
+    # Try to find DejaVuSans font (common on Linux)
+    font_paths = [
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/dejavu/DejaVuSans.ttf',
+        'C:/Windows/Fonts/arial.ttf',
+        'C:/Windows/Fonts/calibri.ttf',
+        '/System/Library/Fonts/Helvetica.ttc',
+    ]
+
+    for font_path in font_paths:
+        if os.path.exists(font_path):
+            try:
+                pdfmetrics.registerFont(TTFont('CyrillicFont', font_path))
+                _font_registered = True
+                return
+            except Exception:
+                continue
+
+    # If no font found, we'll use default (may not display Cyrillic correctly)
+    _font_registered = True
 
 
 class ExportService:
@@ -159,6 +190,8 @@ class ExportService:
     @staticmethod
     def export_to_pdf(result: CostCalculationResult) -> bytes:
         """Export calculation result to PDF format"""
+        register_cyrillic_font()
+
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -170,30 +203,43 @@ class ExportService:
         )
 
         styles = getSampleStyleSheet()
+
+        # Try to use Cyrillic font if registered
+        font_name = 'CyrillicFont' if _font_registered else 'Helvetica'
+
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
+            fontName=font_name,
             fontSize=16,
             spaceAfter=20
+        )
+
+        heading2_style = ParagraphStyle(
+            'CustomHeading2',
+            parent=styles['Heading2'],
+            fontName=font_name,
+            fontSize=12,
+            spaceAfter=10
         )
 
         elements = []
 
         # Title
-        elements.append(Paragraph(f"Расчёт стоимости проекта: {result.calculation_name}", title_style))
+        elements.append(Paragraph(f"Calculation: {result.calculation_name}", title_style))
         elements.append(Spacer(1, 10))
 
         # Summary table
         summary_data = [
-            ["Показатель", "Значение"],
-            ["Методология", result.methodology.upper()],
-            ["Период", f"{result.start_date} — {result.end_date}"],
-            ["Общая себестоимость", f"{result.total_cost:,.2f} руб."],
-            ["Внутренние ресурсы", f"{result.total_internal_cost:,.2f} руб."],
-            ["Внешние ресурсы", f"{result.total_external_cost:,.2f} руб."],
-            ["Общая выручка", f"{result.total_revenue:,.2f} руб."],
-            ["Маржа", f"{result.total_margin:,.2f} руб."],
-            ["Маржинальность", f"{result.margin_percent}%" if result.margin_percent else "N/A"],
+            ["Parameter", "Value"],
+            ["Methodology", result.methodology.upper()],
+            ["Period", f"{result.start_date} - {result.end_date}"],
+            ["Total Cost", f"{float(result.total_cost):,.2f} RUB"],
+            ["Internal Resources", f"{float(result.total_internal_cost):,.2f} RUB"],
+            ["External Resources", f"{float(result.total_external_cost):,.2f} RUB"],
+            ["Total Revenue", f"{float(result.total_revenue):,.2f} RUB"],
+            ["Margin", f"{float(result.total_margin):,.2f} RUB"],
+            ["Margin %", f"{result.margin_percent}%" if result.margin_percent else "N/A"],
         ]
 
         summary_table = Table(summary_data, colWidths=[200, 200])
@@ -201,6 +247,7 @@ class ExportService:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), font_name),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
@@ -210,15 +257,15 @@ class ExportService:
         elements.append(Spacer(1, 20))
 
         # Stages table
-        elements.append(Paragraph("Детализация по этапам", styles['Heading2']))
-        stages_data = [["Этап", "Период", "Себестоимость", "Выручка", "Маржа", "Маржа %"]]
+        elements.append(Paragraph("Stages Breakdown", heading2_style))
+        stages_data = [["Stage", "Period", "Cost", "Revenue", "Margin", "Margin %"]]
         for stage in result.stages:
             stages_data.append([
                 stage.stage_name,
-                f"{stage.start_month} — {stage.end_month}",
-                f"{stage.total_cost:,.2f}",
-                f"{stage.total_revenue:,.2f}",
-                f"{stage.total_margin:,.2f}",
+                f"{stage.start_month} - {stage.end_month}",
+                f"{float(stage.total_cost):,.2f}",
+                f"{float(stage.total_revenue):,.2f}",
+                f"{float(stage.total_margin):,.2f}",
                 f"{stage.margin_percent}%" if stage.margin_percent else "N/A"
             ])
 
@@ -227,12 +274,61 @@ class ExportService:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, -1), font_name),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ]))
         elements.append(stages_table)
+
+        # Roles breakdown
+        elements.append(Spacer(1, 20))
+        elements.append(Paragraph("Roles Breakdown", heading2_style))
+        roles_data = [["Role", "Cost"]]
+        for role, cost in sorted(result.cost_by_role.items()):
+            roles_data.append([role, f"{float(cost):,.2f}"])
+
+        roles_table = Table(roles_data, colWidths=[250, 150])
+        roles_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, -1), font_name),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ]))
+        elements.append(roles_table)
+
+        # Monthly breakdown
+        elements.append(Spacer(1, 20))
+        elements.append(Paragraph("Monthly Breakdown", heading2_style))
+        monthly_data = [["Month", "Cost", "Revenue", "Margin"]]
+        for month in sorted(result.cost_by_month.keys()):
+            cost = float(result.cost_by_month.get(month, 0))
+            revenue = float(result.revenue_by_month.get(month, 0))
+            margin = revenue - cost
+            monthly_data.append([
+                month,
+                f"{cost:,.2f}",
+                f"{revenue:,.2f}",
+                f"{margin:,.2f}"
+            ])
+
+        monthly_table = Table(monthly_data, colWidths=[100, 120, 120, 120])
+        monthly_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, -1), font_name),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ]))
+        elements.append(monthly_table)
 
         doc.build(elements)
         buffer.seek(0)
