@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.models import Calculation, CalculationVersion, Stage, StageAllocation, MonthlyFTE
+from app.models import Project, Calculation, CalculationVersion, Stage, StageAllocation, MonthlyFTE
 from app.schemas import (
     CalculationCreate, CalculationUpdate, CalculationResponse, CalculationDetailResponse,
     CalculationVersionCreate, CalculationVersionUpdate, CalculationVersionResponse,
@@ -13,30 +13,42 @@ from app.schemas import (
 from app.schemas.cost import CostCalculationResult
 from app.services.cost_calculator import CostCalculatorService
 
-router = APIRouter(prefix="/calculations", tags=["Calculations"])
+router = APIRouter(prefix="/projects/{project_id}/calculations", tags=["Calculations"])
 
 
 # ============ Calculations ============
 
 @router.get("/", response_model=List[CalculationResponse])
-def get_calculations(db: Session = Depends(get_db)):
-    """Get all calculations"""
-    return db.query(Calculation).order_by(Calculation.updated_at.desc()).all()
+def get_calculations(project_id: int, db: Session = Depends(get_db)):
+    """Get all calculations for a project"""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return db.query(Calculation).filter(
+        Calculation.project_id == project_id
+    ).order_by(Calculation.updated_at.desc()).all()
 
 
 @router.get("/{calc_id}", response_model=CalculationDetailResponse)
-def get_calculation(calc_id: int, db: Session = Depends(get_db)):
+def get_calculation(project_id: int, calc_id: int, db: Session = Depends(get_db)):
     """Get calculation with versions"""
-    calc = db.query(Calculation).filter(Calculation.id == calc_id).first()
+    calc = db.query(Calculation).filter(
+        Calculation.id == calc_id,
+        Calculation.project_id == project_id
+    ).first()
     if not calc:
         raise HTTPException(status_code=404, detail="Calculation not found")
     return calc
 
 
 @router.post("/", response_model=CalculationResponse)
-def create_calculation(calc: CalculationCreate, db: Session = Depends(get_db)):
-    """Create new calculation"""
-    db_calc = Calculation(**calc.model_dump())
+def create_calculation(project_id: int, calc: CalculationCreate, db: Session = Depends(get_db)):
+    """Create new calculation for a project"""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    db_calc = Calculation(project_id=project_id, **calc.model_dump())
     db.add(db_calc)
     db.commit()
     db.refresh(db_calc)
@@ -44,9 +56,12 @@ def create_calculation(calc: CalculationCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{calc_id}", response_model=CalculationResponse)
-def update_calculation(calc_id: int, calc: CalculationUpdate, db: Session = Depends(get_db)):
+def update_calculation(project_id: int, calc_id: int, calc: CalculationUpdate, db: Session = Depends(get_db)):
     """Update calculation"""
-    db_calc = db.query(Calculation).filter(Calculation.id == calc_id).first()
+    db_calc = db.query(Calculation).filter(
+        Calculation.id == calc_id,
+        Calculation.project_id == project_id
+    ).first()
     if not db_calc:
         raise HTTPException(status_code=404, detail="Calculation not found")
 
@@ -60,9 +75,12 @@ def update_calculation(calc_id: int, calc: CalculationUpdate, db: Session = Depe
 
 
 @router.delete("/{calc_id}")
-def delete_calculation(calc_id: int, db: Session = Depends(get_db)):
+def delete_calculation(project_id: int, calc_id: int, db: Session = Depends(get_db)):
     """Delete calculation"""
-    db_calc = db.query(Calculation).filter(Calculation.id == calc_id).first()
+    db_calc = db.query(Calculation).filter(
+        Calculation.id == calc_id,
+        Calculation.project_id == project_id
+    ).first()
     if not db_calc:
         raise HTTPException(status_code=404, detail="Calculation not found")
 
@@ -74,9 +92,12 @@ def delete_calculation(calc_id: int, db: Session = Depends(get_db)):
 # ============ Versions ============
 
 @router.post("/{calc_id}/versions", response_model=CalculationVersionResponse)
-def create_version(calc_id: int, version: CalculationVersionCreate, db: Session = Depends(get_db)):
+def create_version(project_id: int, calc_id: int, version: CalculationVersionCreate, db: Session = Depends(get_db)):
     """Create new version for calculation"""
-    calc = db.query(Calculation).filter(Calculation.id == calc_id).first()
+    calc = db.query(Calculation).filter(
+        Calculation.id == calc_id,
+        Calculation.project_id == project_id
+    ).first()
     if not calc:
         raise HTTPException(status_code=404, detail="Calculation not found")
 
@@ -97,7 +118,7 @@ def create_version(calc_id: int, version: CalculationVersionCreate, db: Session 
 
 
 @router.get("/{calc_id}/versions/{version_id}", response_model=CalculationVersionResponse)
-def get_version(calc_id: int, version_id: int, db: Session = Depends(get_db)):
+def get_version(project_id: int, calc_id: int, version_id: int, db: Session = Depends(get_db)):
     """Get specific version"""
     version = db.query(CalculationVersion).filter(
         CalculationVersion.id == version_id,
@@ -109,7 +130,7 @@ def get_version(calc_id: int, version_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{calc_id}/versions/{version_id}", response_model=CalculationVersionResponse)
-def update_version(calc_id: int, version_id: int, version_data: CalculationVersionUpdate, db: Session = Depends(get_db)):
+def update_version(project_id: int, calc_id: int, version_id: int, version_data: CalculationVersionUpdate, db: Session = Depends(get_db)):
     """Update version"""
     version = db.query(CalculationVersion).filter(
         CalculationVersion.id == version_id,
@@ -128,7 +149,7 @@ def update_version(calc_id: int, version_id: int, version_data: CalculationVersi
 
 
 @router.delete("/{calc_id}/versions/{version_id}")
-def delete_version(calc_id: int, version_id: int, db: Session = Depends(get_db)):
+def delete_version(project_id: int, calc_id: int, version_id: int, db: Session = Depends(get_db)):
     """Delete version"""
     version = db.query(CalculationVersion).filter(
         CalculationVersion.id == version_id,
@@ -145,14 +166,14 @@ def delete_version(calc_id: int, version_id: int, db: Session = Depends(get_db))
 # ============ Stages ============
 
 @router.get("/{calc_id}/versions/{version_id}/stages", response_model=List[StageResponse])
-def get_stages(calc_id: int, version_id: int, db: Session = Depends(get_db)):
+def get_stages(project_id: int, calc_id: int, version_id: int, db: Session = Depends(get_db)):
     """Get all stages for a version"""
     stages = db.query(Stage).filter(Stage.version_id == version_id).order_by(Stage.order_index).all()
     return stages
 
 
 @router.post("/{calc_id}/versions/{version_id}/stages", response_model=StageResponse)
-def create_stage(calc_id: int, version_id: int, stage: StageCreate, db: Session = Depends(get_db)):
+def create_stage(project_id: int, calc_id: int, version_id: int, stage: StageCreate, db: Session = Depends(get_db)):
     """Create new stage"""
     version = db.query(CalculationVersion).filter(
         CalculationVersion.id == version_id,
@@ -186,7 +207,7 @@ def create_stage(calc_id: int, version_id: int, stage: StageCreate, db: Session 
 
 
 @router.put("/{calc_id}/versions/{version_id}/stages/{stage_id}", response_model=StageResponse)
-def update_stage(calc_id: int, version_id: int, stage_id: int, stage: StageUpdate, db: Session = Depends(get_db)):
+def update_stage(project_id: int, calc_id: int, version_id: int, stage_id: int, stage: StageUpdate, db: Session = Depends(get_db)):
     """Update stage"""
     db_stage = db.query(Stage).filter(
         Stage.id == stage_id,
@@ -205,7 +226,7 @@ def update_stage(calc_id: int, version_id: int, stage_id: int, stage: StageUpdat
 
 
 @router.delete("/{calc_id}/versions/{version_id}/stages/{stage_id}")
-def delete_stage(calc_id: int, version_id: int, stage_id: int, db: Session = Depends(get_db)):
+def delete_stage(project_id: int, calc_id: int, version_id: int, stage_id: int, db: Session = Depends(get_db)):
     """Delete stage"""
     db_stage = db.query(Stage).filter(
         Stage.id == stage_id,
@@ -223,7 +244,7 @@ def delete_stage(calc_id: int, version_id: int, stage_id: int, db: Session = Dep
 
 @router.post("/{calc_id}/versions/{version_id}/stages/{stage_id}/allocations", response_model=StageAllocationResponse)
 def create_allocation(
-    calc_id: int, version_id: int, stage_id: int,
+    project_id: int, calc_id: int, version_id: int, stage_id: int,
     allocation: StageAllocationCreate,
     db: Session = Depends(get_db)
 ):
@@ -253,7 +274,7 @@ def create_allocation(
 
 @router.put("/{calc_id}/versions/{version_id}/stages/{stage_id}/allocations/{alloc_id}", response_model=StageAllocationResponse)
 def update_allocation(
-    calc_id: int, version_id: int, stage_id: int, alloc_id: int,
+    project_id: int, calc_id: int, version_id: int, stage_id: int, alloc_id: int,
     allocation: StageAllocationUpdate,
     db: Session = Depends(get_db)
 ):
@@ -284,7 +305,7 @@ def update_allocation(
 
 
 @router.delete("/{calc_id}/versions/{version_id}/stages/{stage_id}/allocations/{alloc_id}")
-def delete_allocation(calc_id: int, version_id: int, stage_id: int, alloc_id: int, db: Session = Depends(get_db)):
+def delete_allocation(project_id: int, calc_id: int, version_id: int, stage_id: int, alloc_id: int, db: Session = Depends(get_db)):
     """Delete allocation"""
     db_alloc = db.query(StageAllocation).filter(
         StageAllocation.id == alloc_id,
@@ -301,7 +322,7 @@ def delete_allocation(calc_id: int, version_id: int, stage_id: int, alloc_id: in
 # ============ Cost Calculation ============
 
 @router.get("/{calc_id}/versions/{version_id}/calculate", response_model=CostCalculationResult)
-def calculate_cost(calc_id: int, version_id: int, db: Session = Depends(get_db)):
+def calculate_cost(project_id: int, calc_id: int, version_id: int, db: Session = Depends(get_db)):
     """Calculate cost for a version"""
     version = db.query(CalculationVersion).filter(
         CalculationVersion.id == version_id,

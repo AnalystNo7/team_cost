@@ -1,7 +1,7 @@
 import React from 'react'
 import { RightOutlined } from '@ant-design/icons'
 import type { MethodologyType, Stage } from '../types'
-import { WATERFALL_STAGES, AGILE_STAGES } from '../types'
+import { WATERFALL_WORKFLOW, AGILE_WORKFLOW } from '../types'
 
 interface WorkflowDiagramProps {
   methodology: MethodologyType
@@ -16,11 +16,11 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
   activeStageIndex = -1,
   onStageClick,
 }) => {
-  const templateStages = methodology === 'waterfall' ? WATERFALL_STAGES : AGILE_STAGES
+  const workflowStages = methodology === 'waterfall' ? WATERFALL_WORKFLOW : AGILE_WORKFLOW
 
   const getStageStatus = (index: number) => {
-    const templateStage = templateStages[index]
-    const existingStage = stages.find(s => s.stage_type === templateStage.type)
+    const workflowStage = workflowStages[index]
+    const existingStage = stages.find(s => s.stage_type === workflowStage.type)
 
     if (!existingStage) return 'empty'
     if (index === activeStageIndex) return 'active'
@@ -30,7 +30,7 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
 
   return (
     <div className="workflow-container">
-      {templateStages.map((stage, index) => (
+      {workflowStages.map((stage, index) => (
         <React.Fragment key={stage.type}>
           <div
             className={`workflow-stage ${getStageStatus(index)}`}
@@ -53,7 +53,7 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
               </div>
             )}
           </div>
-          {index < templateStages.length - 1 && (
+          {index < workflowStages.length - 1 && (
             <RightOutlined className="workflow-arrow" />
           )}
         </React.Fragment>

@@ -36,11 +36,23 @@ export type StageType =
   | 'mvp_creation'
   | 'mvp_pilot'
 
-export interface Calculation {
+export interface Project {
   id: number
   name: string
   description?: string
   methodology: MethodologyType
+  start_date: string
+  end_date: string
+  created_at: string
+  updated_at?: string
+  calculations?: Calculation[]
+}
+
+export interface Calculation {
+  id: number
+  project_id: number
+  name: string
+  description?: string
   start_date: string
   end_date: string
   created_at: string
@@ -86,8 +98,8 @@ export interface Stage {
   stage_type: StageType
   name?: string
   order_index: number
-  start_month: string
-  end_month: string
+  start_date: string
+  end_date: string
   allocations: StageAllocation[]
   created_at?: string
 }
@@ -121,8 +133,8 @@ export interface StageCostResult {
   stage_id: number
   stage_type: string
   stage_name: string
-  start_month: string
-  end_month: string
+  start_date: string
+  end_date: string
   total_cost: number
   total_revenue: number
   total_margin: number
@@ -151,9 +163,36 @@ export interface CostCalculationResult {
   revenue_by_month: Record<string, number>
 }
 
-// Stage templates
-export const WATERFALL_STAGES: { type: StageType; name: string; subStages?: string[] }[] = [
-  { type: 'initiation', name: 'Инициирование' },
+// Stage templates for dropdown
+export interface StageTemplate {
+  type: StageType
+  name: string
+  isSubstage?: boolean
+  parentType?: StageType
+}
+
+export const WATERFALL_STAGES: StageTemplate[] = [
+  { type: 'initiation', name: 'Этап 0. Инициирование' },
+  { type: 'elaboration', name: 'Этап 1. Проработка' },
+  { type: 'design', name: '2.1 Проектирование', isSubstage: true, parentType: 'development' },
+  { type: 'development', name: '2.2 Разработка и внедрение', isSubstage: true, parentType: 'development' },
+  { type: 'pilot', name: '2.3 Опытная эксплуатация', isSubstage: true, parentType: 'development' },
+  { type: 'expansion', name: 'Этап 3. Развитие и тиражирование' },
+  { type: 'closure', name: 'Этап 4. Завершение' },
+]
+
+export const AGILE_STAGES: StageTemplate[] = [
+  { type: 'initiation', name: 'Этап 0. Инициирование' },
+  { type: 'elaboration', name: 'Этап 1. Проработка' },
+  { type: 'mvp_creation', name: '2.1 Создание MVP', isSubstage: true },
+  { type: 'mvp_pilot', name: '2.2 Опытная эксплуатация и доработка MVP', isSubstage: true },
+  { type: 'expansion', name: 'Этап 3. Развитие и тиражирование' },
+  { type: 'closure', name: 'Этап 4. Завершение' },
+]
+
+// For workflow diagram display
+export const WATERFALL_WORKFLOW: { type: StageType; name: string; subStages?: string[] }[] = [
+  { type: 'initiation', name: 'Этап 0. Инициирование' },
   { type: 'elaboration', name: 'Этап 1. Проработка' },
   {
     type: 'development',
@@ -164,8 +203,8 @@ export const WATERFALL_STAGES: { type: StageType; name: string; subStages?: stri
   { type: 'closure', name: 'Этап 4. Завершение' },
 ]
 
-export const AGILE_STAGES: { type: StageType; name: string; subStages?: string[] }[] = [
-  { type: 'initiation', name: 'Инициирование' },
+export const AGILE_WORKFLOW: { type: StageType; name: string; subStages?: string[] }[] = [
+  { type: 'initiation', name: 'Этап 0. Инициирование' },
   { type: 'elaboration', name: 'Этап 1. Проработка' },
   {
     type: 'mvp_creation',
@@ -177,13 +216,13 @@ export const AGILE_STAGES: { type: StageType; name: string; subStages?: string[]
 ]
 
 export const STAGE_NAMES: Record<StageType, string> = {
-  initiation: 'Инициирование',
-  elaboration: 'Проработка',
-  design: 'Проектирование',
-  development: 'Разработка и внедрение',
-  pilot: 'Опытная эксплуатация',
-  expansion: 'Развитие и тиражирование',
-  closure: 'Завершение',
-  mvp_creation: 'Создание MVP',
-  mvp_pilot: 'Опытная эксплуатация и доработка MVP',
+  initiation: 'Этап 0. Инициирование',
+  elaboration: 'Этап 1. Проработка',
+  design: '2.1 Проектирование',
+  development: '2.2 Разработка и внедрение',
+  pilot: '2.3 Опытная эксплуатация',
+  expansion: 'Этап 3. Развитие и тиражирование',
+  closure: 'Этап 4. Завершение',
+  mvp_creation: '2.1 Создание MVP',
+  mvp_pilot: '2.2 Опытная эксплуатация и доработка MVP',
 }

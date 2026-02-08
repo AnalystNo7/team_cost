@@ -2,33 +2,33 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Row, Col, Statistic, List, Button, Typography, Empty } from 'antd'
 import {
-  CalculatorOutlined,
+  ProjectOutlined,
   PlusOutlined,
   FolderOpenOutlined,
 } from '@ant-design/icons'
-import { calculationsApi } from '../services/api'
-import type { Calculation } from '../types'
+import { projectsApi } from '../services/api'
+import type { Project } from '../types'
 
 const { Title, Text } = Typography
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate()
-  const [calculations, setCalculations] = useState<Calculation[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
 
   useEffect(() => {
-    loadCalculations()
+    loadProjects()
   }, [])
 
-  const loadCalculations = async () => {
+  const loadProjects = async () => {
     try {
-      const response = await calculationsApi.getAll()
-      setCalculations(response.data)
+      const response = await projectsApi.getAll()
+      setProjects(response.data)
     } catch (error) {
-      console.error('Failed to load calculations:', error)
+      console.error('Failed to load projects:', error)
     }
   }
 
-  const recentCalculations = calculations.slice(0, 5)
+  const recentProjects = projects.slice(0, 5)
 
   return (
     <div style={{ padding: 24 }}>
@@ -41,9 +41,9 @@ const Dashboard: React.FC = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Всего расчётов"
-              value={calculations.length}
-              prefix={<CalculatorOutlined />}
+              title="Всего проектов"
+              value={projects.length}
+              prefix={<ProjectOutlined />}
             />
           </Card>
         </Col>
@@ -51,7 +51,7 @@ const Dashboard: React.FC = () => {
           <Card>
             <Statistic
               title="Waterfall"
-              value={calculations.filter(c => c.methodology === 'waterfall').length}
+              value={projects.filter(p => p.methodology === 'waterfall').length}
               valueStyle={{ color: '#3f8600' }}
             />
           </Card>
@@ -60,7 +60,7 @@ const Dashboard: React.FC = () => {
           <Card>
             <Statistic
               title="Agile"
-              value={calculations.filter(c => c.methodology === 'agile').length}
+              value={projects.filter(p => p.methodology === 'agile').length}
               valueStyle={{ color: '#1890ff' }}
             />
           </Card>
@@ -69,10 +69,10 @@ const Dashboard: React.FC = () => {
           <Card
             hoverable
             style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => navigate('/calculations')}
+            onClick={() => navigate('/projects/new')}
           >
             <Button type="primary" size="large" icon={<PlusOutlined />}>
-              Новый расчёт
+              Новый проект
             </Button>
           </Card>
         </Col>
@@ -81,20 +81,20 @@ const Dashboard: React.FC = () => {
       <Row gutter={24} style={{ marginTop: 24 }}>
         <Col xs={24} lg={16}>
           <Card
-            title="Последние расчёты"
+            title="Последние проекты"
             extra={
-              <Button type="link" onClick={() => navigate('/calculations')}>
-                Все расчёты
+              <Button type="link" onClick={() => navigate('/projects')}>
+                Все проекты
               </Button>
             }
           >
-            {recentCalculations.length > 0 ? (
+            {recentProjects.length > 0 ? (
               <List
-                dataSource={recentCalculations}
+                dataSource={recentProjects}
                 renderItem={item => (
                   <List.Item
                     style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/calculations/${item.id}`)}
+                    onClick={() => navigate(`/projects/${item.id}`)}
                     actions={[
                       <Text type="secondary" key="date">
                         {new Date(item.created_at).toLocaleDateString('ru-RU')}
@@ -114,7 +114,7 @@ const Dashboard: React.FC = () => {
                 )}
               />
             ) : (
-              <Empty description="Нет расчётов" />
+              <Empty description="Нет проектов" />
             )}
           </Card>
         </Col>
@@ -123,7 +123,7 @@ const Dashboard: React.FC = () => {
           <Card title="Быстрый старт">
             <List>
               <List.Item>
-                <Text>1. Создайте новый расчёт</Text>
+                <Text>1. Создайте новый проект</Text>
               </List.Item>
               <List.Item>
                 <Text>2. Выберите методологию (Waterfall/Agile)</Text>

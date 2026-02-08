@@ -17,7 +17,7 @@ const formatCurrency = (value: number | string) =>
 const CostSummary: React.FC<CostSummaryProps> = ({ result }) => {
   const stageColumns = [
     { title: 'Этап', dataIndex: 'stage_name', key: 'name' },
-    { title: 'Период', key: 'period', render: (_: unknown, r: typeof result.stages[0]) => `${r.start_month} — ${r.end_month}` },
+    { title: 'Период', key: 'period', render: (_: unknown, r: typeof result.stages[0]) => `${r.start_date} — ${r.end_date}` },
     { title: 'Себестоимость', dataIndex: 'total_cost', key: 'cost', render: (v: number | string) => formatCurrency(v) },
     { title: 'Выручка', dataIndex: 'total_revenue', key: 'revenue', render: (v: number | string) => formatCurrency(v) },
     { title: 'Маржа', dataIndex: 'total_margin', key: 'margin', render: (v: number | string) => formatCurrency(v) },

@@ -31,8 +31,8 @@ class StageCostResult(BaseModel):
     stage_id: int
     stage_type: str
     stage_name: str
-    start_month: str
-    end_month: str
+    start_date: str
+    end_date: str
     total_cost: Decimal
     total_revenue: Decimal
     total_margin: Decimal

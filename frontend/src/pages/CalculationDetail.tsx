@@ -13,6 +13,7 @@ import {
   Modal,
   Form,
   Input,
+  Tag,
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -23,6 +24,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
+  projectsApi,
   calculationsApi,
   versionsApi,
   stagesApi,
@@ -34,6 +36,7 @@ import {
   exportApi,
 } from '../services/api'
 import type {
+  Project,
   Calculation,
   CalculationVersion,
   Stage,
@@ -52,10 +55,12 @@ const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 
 const CalculationDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>()
+  const { projectId: projectIdParam, id } = useParams<{ projectId: string; id: string }>()
   const navigate = useNavigate()
+  const projectId = Number(projectIdParam)
   const calcId = Number(id)
 
+  const [project, setProject] = useState<Project | null>(null)
   const [calculation, setCalculation] = useState<Calculation | null>(null)
   const [versions, setVersions] = useState<CalculationVersion[]>([])
   const [currentVersionId, setCurrentVersionId] = useState<number | null>(null)
@@ -73,7 +78,7 @@ const CalculationDetail: React.FC = () => {
 
   useEffect(() => {
     loadInitialData()
-  }, [calcId])
+  }, [projectId, calcId])
 
   useEffect(() => {
     if (currentVersionId) {
@@ -85,22 +90,23 @@ const CalculationDetail: React.FC = () => {
   const loadInitialData = async () => {
     try {
       setLoading(true)
-      const [calcRes, rolesRes, ratesRes] = await Promise.all([
-        calculationsApi.getById(calcId),
+      const [projectRes, calcRes, rolesRes, ratesRes] = await Promise.all([
+        projectsApi.getById(projectId),
+        calculationsApi.getById(projectId, calcId),
         rolesApi.getAll(),
         rateCategoriesApi.getAll(),
       ])
 
+      setProject(projectRes.data)
       setCalculation(calcRes.data)
       setRoles(rolesRes.data)
       setRateCategories(ratesRes.data)
       setVersions(calcRes.data.versions || [])
 
-      // Load calendar for project period
-      const calendarRes = await calendarApi.getRange(
-        calcRes.data.start_date,
-        calcRes.data.end_date
-      )
+      // Load calendar for calculation period
+      const startMonth = calcRes.data.start_date.substring(0, 7)
+      const endMonth = calcRes.data.end_date.substring(0, 7)
+      const calendarRes = await calendarApi.getRange(startMonth, endMonth)
       setMonths(calendarRes.data)
 
       // Select first version or create one
@@ -108,7 +114,7 @@ const CalculationDetail: React.FC = () => {
         setCurrentVersionId(calcRes.data.versions[0].id)
       } else {
         // Create initial version
-        const versionRes = await versionsApi.create(calcId, {
+        const versionRes = await versionsApi.create(projectId, calcId, {
           name: 'Базовая версия',
           is_baseline: true,
         })
@@ -126,7 +132,7 @@ const CalculationDetail: React.FC = () => {
   const loadStages = async () => {
     if (!currentVersionId) return
     try {
-      const response = await stagesApi.getAll(calcId, currentVersionId)
+      const response = await stagesApi.getAll(projectId, calcId, currentVersionId)
       setStages(response.data)
     } catch (error) {
       console.error('Failed to load stages:', error)
@@ -136,7 +142,7 @@ const CalculationDetail: React.FC = () => {
   const loadCostResult = async () => {
     if (!currentVersionId) return
     try {
-      const response = await costApi.calculate(calcId, currentVersionId)
+      const response = await costApi.calculate(projectId, calcId, currentVersionId)
       setCostResult(response.data)
     } catch (error) {
       console.error('Failed to calculate cost:', error)
@@ -152,12 +158,12 @@ const CalculationDetail: React.FC = () => {
         stage_type: values.stage_type,
         name: values.name,
         order_index: stages.length,
-        start_month: values.period[0].format('YYYY-MM'),
-        end_month: values.period[1].format('YYYY-MM'),
+        start_date: values.period[0].format('YYYY-MM-DD'),
+        end_date: values.period[1].format('YYYY-MM-DD'),
         allocations: [],
       }
 
-      await stagesApi.create(calcId, currentVersionId, stageData)
+      await stagesApi.create(projectId, calcId, currentVersionId, stageData)
       message.success('Этап добавлен')
       setStageModalOpen(false)
       stageForm.resetFields()
@@ -171,7 +177,7 @@ const CalculationDetail: React.FC = () => {
   const handleAddAllocation = async (stageId: number, allocation: Partial<StageAllocation>) => {
     if (!currentVersionId) return
     try {
-      await allocationsApi.create(calcId, currentVersionId, stageId, allocation)
+      await allocationsApi.create(projectId, calcId, currentVersionId, stageId, allocation)
       loadStages()
       loadCostResult()
     } catch (error) {
@@ -186,7 +192,7 @@ const CalculationDetail: React.FC = () => {
   ) => {
     if (!currentVersionId) return
     try {
-      await allocationsApi.update(calcId, currentVersionId, stageId, allocId, data)
+      await allocationsApi.update(projectId, calcId, currentVersionId, stageId, allocId, data)
       loadStages()
       loadCostResult()
     } catch (error) {
@@ -197,7 +203,7 @@ const CalculationDetail: React.FC = () => {
   const handleDeleteAllocation = async (stageId: number, allocId: number) => {
     if (!currentVersionId) return
     try {
-      await allocationsApi.delete(calcId, currentVersionId, stageId, allocId)
+      await allocationsApi.delete(projectId, calcId, currentVersionId, stageId, allocId)
       loadStages()
       loadCostResult()
     } catch (error) {
@@ -220,18 +226,32 @@ const CalculationDetail: React.FC = () => {
     if (!currentVersionId) return
     try {
       const values = await versionEditForm.validateFields()
-      await versionsApi.update(calcId, currentVersionId, values)
+      await versionsApi.update(projectId, calcId, currentVersionId, values)
       message.success('Версия обновлена')
       setVersionEditModalOpen(false)
       // Reload calculation to update versions list
-      const calcRes = await calculationsApi.getById(calcId)
+      const calcRes = await calculationsApi.getById(projectId, calcId)
       setVersions(calcRes.data.versions || [])
     } catch (error) {
       message.error('Ошибка обновления версии')
     }
   }
 
-  const templateStages = calculation?.methodology === 'waterfall' ? WATERFALL_STAGES : AGILE_STAGES
+  const formatVersionLabel = (v: CalculationVersion) => {
+    const createdAt = new Date(v.created_at)
+    const dateStr = createdAt.toLocaleDateString('ru-RU')
+    const timeStr = createdAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    return `v${v.version_number}: ${v.name || 'Базовая версия'} (${dateStr} ${timeStr})`
+  }
+
+  const templateStages = project?.methodology === 'waterfall' ? WATERFALL_STAGES : AGILE_STAGES
+
+  // Get months from stage dates for allocation table
+  const getStageMonths = (stage: Stage) => {
+    const startMonth = stage.start_date.substring(0, 7)
+    const endMonth = stage.end_date.substring(0, 7)
+    return months.filter(m => m.year_month >= startMonth && m.year_month <= endMonth)
+  }
 
   if (loading) {
     return (
@@ -241,7 +261,7 @@ const CalculationDetail: React.FC = () => {
     )
   }
 
-  if (!calculation) {
+  if (!calculation || !project) {
     return <div>Расчёт не найден</div>
   }
 
@@ -252,25 +272,27 @@ const CalculationDetail: React.FC = () => {
         <Card>
           <Space style={{ width: '100%', justifyContent: 'space-between' }}>
             <Space>
-              <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/calculations')}>
+              <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/projects/${projectId}`)}>
                 Назад
               </Button>
               <Title level={4} style={{ margin: 0 }}>
                 {calculation.name}
               </Title>
+              <Tag color={project.methodology === 'waterfall' ? 'green' : 'blue'}>
+                {project.methodology.toUpperCase()}
+              </Tag>
               <Text type="secondary">
-                {calculation.methodology.toUpperCase()} | {calculation.start_date} —{' '}
-                {calculation.end_date}
+                {calculation.start_date} — {calculation.end_date}
               </Text>
             </Space>
             <Space>
               <Select
-                style={{ width: 200 }}
+                style={{ width: 300 }}
                 value={currentVersionId}
                 onChange={setCurrentVersionId}
                 options={versions.map(v => ({
                   value: v.id,
-                  label: `v${v.version_number}: ${v.name || 'Базовая версия'}`,
+                  label: formatVersionLabel(v),
                 }))}
               />
               <Button
@@ -280,13 +302,13 @@ const CalculationDetail: React.FC = () => {
               />
               <Button
                 icon={<FileExcelOutlined />}
-                href={currentVersionId ? exportApi.excel(calcId, currentVersionId) : undefined}
+                href={currentVersionId ? exportApi.excel(projectId, calcId, currentVersionId) : undefined}
               >
                 Excel
               </Button>
               <Button
                 icon={<FilePdfOutlined />}
-                href={currentVersionId ? exportApi.pdf(calcId, currentVersionId) : undefined}
+                href={currentVersionId ? exportApi.pdf(projectId, calcId, currentVersionId) : undefined}
               >
                 PDF
               </Button>
@@ -297,7 +319,7 @@ const CalculationDetail: React.FC = () => {
         {/* Workflow */}
         <Card title="Workflow проекта">
           <WorkflowDiagram
-            methodology={calculation.methodology}
+            methodology={project.methodology}
             stages={stages}
             activeStageIndex={activeStageIndex}
             onStageClick={setActiveStageIndex}
@@ -321,7 +343,7 @@ const CalculationDetail: React.FC = () => {
                 <Space>
                   <span>{stage.name || STAGE_NAMES[stage.stage_type]}</span>
                   <Text type="secondary">
-                    ({stage.start_month} — {stage.end_month})
+                    ({stage.start_date} — {stage.end_date})
                   </Text>
                 </Space>
               ),
@@ -330,9 +352,7 @@ const CalculationDetail: React.FC = () => {
                   allocations={stage.allocations}
                   roles={roles}
                   rateCategories={rateCategories}
-                  months={months.filter(
-                    m => m.year_month >= stage.start_month && m.year_month <= stage.end_month
-                  )}
+                  months={getStageMonths(stage)}
                   onAdd={alloc => handleAddAllocation(stage.id!, alloc)}
                   onUpdate={(allocId, data) =>
                     handleUpdateAllocation(stage.id!, allocId, data)
@@ -363,12 +383,17 @@ const CalculationDetail: React.FC = () => {
             label="Тип этапа"
             rules={[{ required: true, message: 'Выберите тип' }]}
           >
-            <Select
-              options={templateStages.map(s => ({
-                value: s.type,
-                label: s.name,
-              }))}
-            />
+            <Select>
+              {templateStages.map(s => (
+                <Select.Option
+                  key={s.type}
+                  value={s.type}
+                  style={{ paddingLeft: s.isSubstage ? 24 : 8 }}
+                >
+                  {s.name}
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
           <Form.Item name="name" label="Название (опционально)">
             <Input placeholder="Кастомное название этапа" />
@@ -379,13 +404,12 @@ const CalculationDetail: React.FC = () => {
             rules={[{ required: true, message: 'Укажите период' }]}
           >
             <RangePicker
-              picker="month"
               style={{ width: '100%' }}
-              format="YYYY-MM"
+              format="DD.MM.YYYY"
               disabledDate={date => {
                 const start = dayjs(calculation.start_date)
                 const end = dayjs(calculation.end_date)
-                return date.isBefore(start, 'month') || date.isAfter(end, 'month')
+                return date.isBefore(start, 'day') || date.isAfter(end, 'day')
               }}
             />
           </Form.Item>

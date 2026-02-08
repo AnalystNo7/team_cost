@@ -1,15 +1,13 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
-from app.models.calculation import MethodologyType
+from datetime import datetime, date
 
 
 class CalculationBase(BaseModel):
     name: str
     description: Optional[str] = None
-    methodology: MethodologyType
-    start_date: str  # YYYY-MM
-    end_date: str  # YYYY-MM
+    start_date: date
+    end_date: date
 
 
 class CalculationCreate(CalculationBase):
@@ -19,13 +17,13 @@ class CalculationCreate(CalculationBase):
 class CalculationUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    methodology: Optional[MethodologyType] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
 
 class CalculationResponse(CalculationBase):
     id: int
+    project_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
 

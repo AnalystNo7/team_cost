@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, Numeric, Text
+from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, Numeric, Text, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -7,13 +7,14 @@ import enum
 
 class StageType(str, enum.Enum):
     # Waterfall stages
-    INITIATION = "initiation"
-    ELABORATION = "elaboration"  # Проработка
-    DESIGN = "design"  # Проектирование
-    DEVELOPMENT = "development"  # Разработка и внедрение
-    PILOT = "pilot"  # Опытная эксплуатация
-    EXPANSION = "expansion"  # Развитие и тиражирование
-    CLOSURE = "closure"  # Завершение
+    INITIATION = "initiation"  # Этап 0. Инициирование
+    ELABORATION = "elaboration"  # Этап 1. Проработка
+    # Этап 2. Создание и внедрение (substages)
+    DESIGN = "design"  # 2.1 Проектирование
+    DEVELOPMENT = "development"  # 2.2 Разработка и внедрение
+    PILOT = "pilot"  # 2.3 Опытная эксплуатация
+    EXPANSION = "expansion"  # Этап 3. Развитие и тиражирование
+    CLOSURE = "closure"  # Этап 4. Завершение
 
     # Agile-specific stages
     MVP_CREATION = "mvp_creation"  # Создание MVP
@@ -33,8 +34,8 @@ class Stage(Base):
     stage_type = Column(Enum(StageType), nullable=False)
     name = Column(String(100), nullable=True)  # Custom name override
     order_index = Column(Integer, nullable=False)  # For ordering, especially for repeated stages
-    start_month = Column(String(7), nullable=False)  # YYYY-MM
-    end_month = Column(String(7), nullable=False)  # YYYY-MM
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     version = relationship("CalculationVersion", back_populates="stages")

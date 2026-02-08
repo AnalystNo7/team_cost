@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Layout, Menu } from 'antd'
 import {
   DashboardOutlined,
-  CalculatorOutlined,
+  ProjectOutlined,
   BookOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
@@ -25,9 +25,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: 'Главная',
     },
     {
-      key: '/calculations',
-      icon: <CalculatorOutlined />,
-      label: 'Расчёты',
+      key: '/projects',
+      icon: <ProjectOutlined />,
+      label: 'Проекты',
     },
     {
       key: '/references',
@@ -43,7 +43,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const getSelectedKey = () => {
     const path = location.pathname
-    if (path.startsWith('/calculations/')) return '/calculations'
+    if (path.startsWith('/projects')) return '/projects'
     return path
   }
 

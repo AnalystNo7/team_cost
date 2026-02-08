@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from app.models.stage import StageType, ResourceType
 
@@ -58,8 +58,8 @@ class StageBase(BaseModel):
     stage_type: StageType
     name: Optional[str] = None
     order_index: int
-    start_month: str  # YYYY-MM
-    end_month: str  # YYYY-MM
+    start_date: date
+    end_date: date
 
 
 class StageCreate(StageBase):
@@ -70,8 +70,8 @@ class StageUpdate(BaseModel):
     stage_type: Optional[StageType] = None
     name: Optional[str] = None
     order_index: Optional[int] = None
-    start_month: Optional[str] = None
-    end_month: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
 
 class StageResponse(StageBase):
