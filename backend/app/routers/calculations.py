@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models import Calculation, CalculationVersion, Stage, StageAllocation, MonthlyFTE
 from app.schemas import (
     CalculationCreate, CalculationUpdate, CalculationResponse, CalculationDetailResponse,
-    CalculationVersionCreate, CalculationVersionResponse,
+    CalculationVersionCreate, CalculationVersionUpdate, CalculationVersionResponse,
     StageCreate, StageUpdate, StageResponse,
     StageAllocationCreate, StageAllocationUpdate, StageAllocationResponse,
 )
@@ -105,6 +105,25 @@ def get_version(calc_id: int, version_id: int, db: Session = Depends(get_db)):
     ).first()
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
+    return version
+
+
+@router.put("/{calc_id}/versions/{version_id}", response_model=CalculationVersionResponse)
+def update_version(calc_id: int, version_id: int, version_data: CalculationVersionUpdate, db: Session = Depends(get_db)):
+    """Update version"""
+    version = db.query(CalculationVersion).filter(
+        CalculationVersion.id == version_id,
+        CalculationVersion.calculation_id == calc_id
+    ).first()
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    update_data = version_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(version, field, value)
+
+    db.commit()
+    db.refresh(version)
     return version
 
 

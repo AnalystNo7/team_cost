@@ -3,7 +3,7 @@ from app.schemas.rate_category import RateCategoryCreate, RateCategoryUpdate, Ra
 from app.schemas.work_calendar import WorkCalendarResponse
 from app.schemas.calculation import (
     CalculationCreate, CalculationUpdate, CalculationResponse,
-    CalculationVersionCreate, CalculationVersionResponse,
+    CalculationVersionCreate, CalculationVersionUpdate, CalculationVersionResponse,
     CalculationDetailResponse
 )
 from app.schemas.stage import (
@@ -18,7 +18,7 @@ __all__ = [
     "RateCategoryCreate", "RateCategoryUpdate", "RateCategoryResponse",
     "WorkCalendarResponse",
     "CalculationCreate", "CalculationUpdate", "CalculationResponse",
-    "CalculationVersionCreate", "CalculationVersionResponse",
+    "CalculationVersionCreate", "CalculationVersionUpdate", "CalculationVersionResponse",
     "CalculationDetailResponse",
     "StageCreate", "StageUpdate", "StageResponse",
     "StageAllocationCreate", "StageAllocationUpdate", "StageAllocationResponse",

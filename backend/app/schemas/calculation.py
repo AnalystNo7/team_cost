@@ -39,6 +39,12 @@ class CalculationVersionCreate(BaseModel):
     is_baseline: bool = False
 
 
+class CalculationVersionUpdate(BaseModel):
+    name: Optional[str] = None
+    notes: Optional[str] = None
+    is_baseline: Optional[bool] = None
+
+
 class CalculationVersionResponse(BaseModel):
     id: int
     calculation_id: int

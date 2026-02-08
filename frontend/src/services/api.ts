@@ -54,6 +54,8 @@ export const calculationsApi = {
 export const versionsApi = {
   create: (calcId: number, data: Partial<CalculationVersion>) =>
     api.post<CalculationVersion>(`/calculations/${calcId}/versions`, data),
+  update: (calcId: number, versionId: number, data: Partial<CalculationVersion>) =>
+    api.put<CalculationVersion>(`/calculations/${calcId}/versions/${versionId}`, data),
   delete: (calcId: number, versionId: number) =>
     api.delete(`/calculations/${calcId}/versions/${versionId}`),
 }

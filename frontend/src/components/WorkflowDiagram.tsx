@@ -41,11 +41,14 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
             </div>
             {stage.subStages && (
               <div className="sub-stages">
-                {stage.subStages.map((_, subIndex) => (
+                {stage.subStages.map((subStageName, subIndex) => (
                   <div
                     key={subIndex}
-                    className={`sub-stage ${subIndex === 0 ? 'active' : ''}`}
-                  />
+                    className="sub-stage-item"
+                  >
+                    <div className={`sub-stage-dot ${subIndex === 0 ? 'active' : ''}`} />
+                    <div className="sub-stage-label">{subStageName}</div>
+                  </div>
                 ))}
               </div>
             )}

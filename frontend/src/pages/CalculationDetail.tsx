@@ -19,6 +19,7 @@ import {
   PlusOutlined,
   FilePdfOutlined,
   FileExcelOutlined,
+  EditOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
@@ -67,6 +68,8 @@ const CalculationDetail: React.FC = () => {
   const [activeStageIndex, setActiveStageIndex] = useState(0)
   const [stageModalOpen, setStageModalOpen] = useState(false)
   const [stageForm] = Form.useForm()
+  const [versionEditModalOpen, setVersionEditModalOpen] = useState(false)
+  const [versionEditForm] = Form.useForm()
 
   useEffect(() => {
     loadInitialData()
@@ -202,6 +205,32 @@ const CalculationDetail: React.FC = () => {
     }
   }
 
+  const handleEditVersion = () => {
+    const currentVersion = versions.find(v => v.id === currentVersionId)
+    if (currentVersion) {
+      versionEditForm.setFieldsValue({
+        name: currentVersion.name || 'Базовая версия',
+        notes: currentVersion.notes || '',
+      })
+      setVersionEditModalOpen(true)
+    }
+  }
+
+  const handleUpdateVersion = async () => {
+    if (!currentVersionId) return
+    try {
+      const values = await versionEditForm.validateFields()
+      await versionsApi.update(calcId, currentVersionId, values)
+      message.success('Версия обновлена')
+      setVersionEditModalOpen(false)
+      // Reload calculation to update versions list
+      const calcRes = await calculationsApi.getById(calcId)
+      setVersions(calcRes.data.versions || [])
+    } catch (error) {
+      message.error('Ошибка обновления версии')
+    }
+  }
+
   const templateStages = calculation?.methodology === 'waterfall' ? WATERFALL_STAGES : AGILE_STAGES
 
   if (loading) {
@@ -241,8 +270,13 @@ const CalculationDetail: React.FC = () => {
                 onChange={setCurrentVersionId}
                 options={versions.map(v => ({
                   value: v.id,
-                  label: `v${v.version_number}: ${v.name || 'Без названия'}`,
+                  label: `v${v.version_number}: ${v.name || 'Базовая версия'}`,
                 }))}
+              />
+              <Button
+                icon={<EditOutlined />}
+                onClick={handleEditVersion}
+                disabled={!currentVersionId}
               />
               <Button
                 icon={<FileExcelOutlined />}
@@ -354,6 +388,29 @@ const CalculationDetail: React.FC = () => {
                 return date.isBefore(start, 'month') || date.isAfter(end, 'month')
               }}
             />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Edit Version Modal */}
+      <Modal
+        title="Редактировать версию"
+        open={versionEditModalOpen}
+        onOk={handleUpdateVersion}
+        onCancel={() => setVersionEditModalOpen(false)}
+        okText="Сохранить"
+        cancelText="Отмена"
+      >
+        <Form form={versionEditForm} layout="vertical" style={{ marginTop: 20 }}>
+          <Form.Item
+            name="name"
+            label="Название версии"
+            rules={[{ required: true, message: 'Введите название версии' }]}
+          >
+            <Input placeholder="Например: Базовая версия" />
+          </Form.Item>
+          <Form.Item name="notes" label="Примечания">
+            <Input.TextArea rows={3} placeholder="Дополнительные примечания к версии" />
           </Form.Item>
         </Form>
       </Modal>

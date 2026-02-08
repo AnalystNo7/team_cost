@@ -4,8 +4,7 @@ import { Layout, Menu } from 'antd'
 import {
   DashboardOutlined,
   CalculatorOutlined,
-  TeamOutlined,
-  DollarOutlined,
+  BookOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
 
@@ -31,14 +30,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: 'Расчёты',
     },
     {
-      key: '/roles',
-      icon: <TeamOutlined />,
-      label: 'Проектные роли',
-    },
-    {
-      key: '/rate-categories',
-      icon: <DollarOutlined />,
-      label: 'Категории ставок',
+      key: '/references',
+      icon: <BookOutlined />,
+      label: 'Справочники',
     },
     {
       key: '/settings',
