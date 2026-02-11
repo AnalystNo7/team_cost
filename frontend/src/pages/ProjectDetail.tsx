@@ -248,7 +248,7 @@ const ProjectDetail: React.FC = () => {
   }
 
   const formatVersionLabel = (v: ProjectVersion) => {
-    return `v${v.version_number}: ${v.name || 'Базовая версия'}`
+    return `v${v.version_number}: ${v.name || 'Версия ' + v.version_number}`
   }
 
   const getCurrentVersionCreatedAt = () => {
@@ -398,7 +398,24 @@ const ProjectDetail: React.FC = () => {
         </Card>
 
         {/* Cost Summary */}
-        {costResult && <CostSummary result={costResult} />}
+        <CostSummary result={costResult || {
+          project_id: projectId,
+          version_id: currentVersionId || 0,
+          project_name: project.name,
+          methodology: project.methodology,
+          start_date: project.start_date,
+          end_date: project.end_date,
+          total_cost: 0,
+          total_revenue: 0,
+          total_margin: 0,
+          margin_percent: null,
+          total_internal_cost: 0,
+          total_external_cost: 0,
+          stages: [],
+          cost_by_role: {},
+          cost_by_month: {},
+          revenue_by_month: {},
+        }} />
       </Space>
 
       {/* Add Stage Modal */}
