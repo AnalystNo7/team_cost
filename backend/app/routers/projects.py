@@ -91,14 +91,16 @@ def create_version(project_id: int, version: ProjectVersionCreate, db: Session =
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Get next version number
-    max_version = db.query(ProjectVersion).filter(
+    # Get next version number (max existing + 1, or 1 if no versions)
+    from sqlalchemy import func
+    max_version_num = db.query(func.max(ProjectVersion.version_number)).filter(
         ProjectVersion.project_id == project_id
-    ).count()
+    ).scalar()
+    next_version = (max_version_num or 0) + 1
 
     db_version = ProjectVersion(
         project_id=project_id,
-        version_number=max_version + 1,
+        version_number=next_version,
         **version.model_dump()
     )
     db.add(db_version)
