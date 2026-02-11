@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from app.models import CalculationVersion, Stage, StageAllocation, MonthlyFTE, RateCategory, Role
+from app.models import ProjectVersion, Stage, StageAllocation, MonthlyFTE, RateCategory, Role
 from app.schemas.cost import (
     CostCalculationResult, StageCostResult, AllocationCostResult, MonthlyDetail
 )
@@ -128,15 +128,15 @@ class CostCalculatorService:
 
     @classmethod
     def calculate_version(cls, db: Session, version_id: int) -> CostCalculationResult:
-        """Calculate full cost for a calculation version"""
-        version = db.query(CalculationVersion).filter(
-            CalculationVersion.id == version_id
+        """Calculate full cost for a project version"""
+        version = db.query(ProjectVersion).filter(
+            ProjectVersion.id == version_id
         ).first()
 
         if not version:
             raise ValueError(f"Version {version_id} not found")
 
-        calculation = version.calculation
+        project = version.project
 
         total_cost = Decimal("0")
         total_revenue = Decimal("0")
@@ -179,12 +179,12 @@ class CostCalculatorService:
             )
 
         return CostCalculationResult(
-            calculation_id=calculation.id,
+            project_id=project.id,
             version_id=version.id,
-            calculation_name=calculation.name,
-            methodology=calculation.project.methodology.value,
-            start_date=calculation.start_date,
-            end_date=calculation.end_date,
+            project_name=project.name,
+            methodology=project.methodology.value,
+            start_date=project.start_date,
+            end_date=project.end_date,
             total_cost=total_cost,
             total_revenue=total_revenue,
             total_margin=total_margin,

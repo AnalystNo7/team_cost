@@ -3,8 +3,7 @@ import type {
   Role,
   RateCategory,
   Project,
-  Calculation,
-  CalculationVersion,
+  ProjectVersion,
   Stage,
   StageAllocation,
   CostCalculationResult,
@@ -51,74 +50,67 @@ export const projectsApi = {
   delete: (id: number) => api.delete(`/projects/${id}`),
 }
 
-// Calculations (nested under projects)
-export const calculationsApi = {
-  getAll: (projectId: number) => api.get<Calculation[]>(`/projects/${projectId}/calculations/`),
-  getById: (projectId: number, id: number) => api.get<Calculation>(`/projects/${projectId}/calculations/${id}`),
-  create: (projectId: number, data: Partial<Calculation>) => api.post<Calculation>(`/projects/${projectId}/calculations/`, data),
-  update: (projectId: number, id: number, data: Partial<Calculation>) => api.put<Calculation>(`/projects/${projectId}/calculations/${id}`, data),
-  delete: (projectId: number, id: number) => api.delete(`/projects/${projectId}/calculations/${id}`),
-}
-
-// Versions
+// Versions (directly under projects)
 export const versionsApi = {
-  create: (projectId: number, calcId: number, data: Partial<CalculationVersion>) =>
-    api.post<CalculationVersion>(`/projects/${projectId}/calculations/${calcId}/versions`, data),
-  update: (projectId: number, calcId: number, versionId: number, data: Partial<CalculationVersion>) =>
-    api.put<CalculationVersion>(`/projects/${projectId}/calculations/${calcId}/versions/${versionId}`, data),
-  delete: (projectId: number, calcId: number, versionId: number) =>
-    api.delete(`/projects/${projectId}/calculations/${calcId}/versions/${versionId}`),
+  getAll: (projectId: number) => api.get<ProjectVersion[]>(`/projects/${projectId}/versions`),
+  getById: (projectId: number, versionId: number) =>
+    api.get<ProjectVersion>(`/projects/${projectId}/versions/${versionId}`),
+  create: (projectId: number, data: Partial<ProjectVersion>) =>
+    api.post<ProjectVersion>(`/projects/${projectId}/versions`, data),
+  update: (projectId: number, versionId: number, data: Partial<ProjectVersion>) =>
+    api.put<ProjectVersion>(`/projects/${projectId}/versions/${versionId}`, data),
+  delete: (projectId: number, versionId: number) =>
+    api.delete(`/projects/${projectId}/versions/${versionId}`),
 }
 
 // Stages
 export const stagesApi = {
-  getAll: (projectId: number, calcId: number, versionId: number) =>
-    api.get<Stage[]>(`/projects/${projectId}/calculations/${calcId}/versions/${versionId}/stages`),
-  create: (projectId: number, calcId: number, versionId: number, data: Partial<Stage>) =>
-    api.post<Stage>(`/projects/${projectId}/calculations/${calcId}/versions/${versionId}/stages`, data),
-  update: (projectId: number, calcId: number, versionId: number, stageId: number, data: Partial<Stage>) =>
-    api.put<Stage>(`/projects/${projectId}/calculations/${calcId}/versions/${versionId}/stages/${stageId}`, data),
-  delete: (projectId: number, calcId: number, versionId: number, stageId: number) =>
-    api.delete(`/projects/${projectId}/calculations/${calcId}/versions/${versionId}/stages/${stageId}`),
+  getAll: (projectId: number, versionId: number) =>
+    api.get<Stage[]>(`/projects/${projectId}/versions/${versionId}/stages`),
+  create: (projectId: number, versionId: number, data: Partial<Stage>) =>
+    api.post<Stage>(`/projects/${projectId}/versions/${versionId}/stages`, data),
+  update: (projectId: number, versionId: number, stageId: number, data: Partial<Stage>) =>
+    api.put<Stage>(`/projects/${projectId}/versions/${versionId}/stages/${stageId}`, data),
+  delete: (projectId: number, versionId: number, stageId: number) =>
+    api.delete(`/projects/${projectId}/versions/${versionId}/stages/${stageId}`),
 }
 
 // Allocations
 export const allocationsApi = {
-  create: (projectId: number, calcId: number, versionId: number, stageId: number, data: Partial<StageAllocation>) =>
+  create: (projectId: number, versionId: number, stageId: number, data: Partial<StageAllocation>) =>
     api.post<StageAllocation>(
-      `/projects/${projectId}/calculations/${calcId}/versions/${versionId}/stages/${stageId}/allocations`,
+      `/projects/${projectId}/versions/${versionId}/stages/${stageId}/allocations`,
       data
     ),
   update: (
     projectId: number,
-    calcId: number,
     versionId: number,
     stageId: number,
     allocId: number,
     data: Partial<StageAllocation>
   ) =>
     api.put<StageAllocation>(
-      `/projects/${projectId}/calculations/${calcId}/versions/${versionId}/stages/${stageId}/allocations/${allocId}`,
+      `/projects/${projectId}/versions/${versionId}/stages/${stageId}/allocations/${allocId}`,
       data
     ),
-  delete: (projectId: number, calcId: number, versionId: number, stageId: number, allocId: number) =>
+  delete: (projectId: number, versionId: number, stageId: number, allocId: number) =>
     api.delete(
-      `/projects/${projectId}/calculations/${calcId}/versions/${versionId}/stages/${stageId}/allocations/${allocId}`
+      `/projects/${projectId}/versions/${versionId}/stages/${stageId}/allocations/${allocId}`
     ),
 }
 
 // Cost Calculation
 export const costApi = {
-  calculate: (projectId: number, calcId: number, versionId: number) =>
-    api.get<CostCalculationResult>(`/projects/${projectId}/calculations/${calcId}/versions/${versionId}/calculate`),
+  calculate: (projectId: number, versionId: number) =>
+    api.get<CostCalculationResult>(`/projects/${projectId}/versions/${versionId}/calculate`),
 }
 
 // Export
 export const exportApi = {
-  excel: (projectId: number, calcId: number, versionId: number) =>
-    `/api/projects/${projectId}/calculations/${calcId}/versions/${versionId}/excel`,
-  pdf: (projectId: number, calcId: number, versionId: number) =>
-    `/api/projects/${projectId}/calculations/${calcId}/versions/${versionId}/pdf`,
+  excel: (projectId: number, versionId: number) =>
+    `/api/export/projects/${projectId}/versions/${versionId}/excel`,
+  pdf: (projectId: number, versionId: number) =>
+    `/api/export/projects/${projectId}/versions/${versionId}/pdf`,
 }
 
 export default api

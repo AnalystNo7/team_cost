@@ -43,9 +43,9 @@ class StageCostResult(BaseModel):
 
 
 class CostCalculationResult(BaseModel):
-    calculation_id: int
+    project_id: int
     version_id: int
-    calculation_name: str
+    project_name: str
     methodology: str
     start_date: str
     end_date: str

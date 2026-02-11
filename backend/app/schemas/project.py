@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, date
 from app.models.project import MethodologyType
+from app.schemas.calculation import ProjectVersionResponse
 
 
 class ProjectBase(BaseModel):
@@ -33,17 +34,5 @@ class ProjectResponse(ProjectBase):
         from_attributes = True
 
 
-class CalculationBriefResponse(BaseModel):
-    id: int
-    name: str
-    description: Optional[str] = None
-    start_date: date
-    end_date: date
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
 class ProjectDetailResponse(ProjectResponse):
-    calculations: List[CalculationBriefResponse] = []
+    versions: List[ProjectVersionResponse] = []

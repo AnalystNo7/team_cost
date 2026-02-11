@@ -2,7 +2,7 @@ from app.models.role import Role
 from app.models.rate_category import RateCategory
 from app.models.work_calendar import WorkCalendar
 from app.models.project import Project, MethodologyType
-from app.models.calculation import Calculation, CalculationVersion
+from app.models.calculation import ProjectVersion
 from app.models.stage import Stage, StageAllocation, MonthlyFTE, StageType, ResourceType
 
 __all__ = [
@@ -11,8 +11,7 @@ __all__ = [
     "WorkCalendar",
     "Project",
     "MethodologyType",
-    "Calculation",
-    "CalculationVersion",
+    "ProjectVersion",
     "Stage",
     "StageAllocation",
     "MonthlyFTE",

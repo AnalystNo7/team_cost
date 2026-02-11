@@ -1,13 +1,11 @@
 from app.schemas.role import RoleCreate, RoleUpdate, RoleResponse
 from app.schemas.rate_category import RateCategoryCreate, RateCategoryUpdate, RateCategoryResponse
 from app.schemas.work_calendar import WorkCalendarResponse
+from app.schemas.calculation import (
+    ProjectVersionCreate, ProjectVersionUpdate, ProjectVersionResponse
+)
 from app.schemas.project import (
     ProjectCreate, ProjectUpdate, ProjectResponse, ProjectDetailResponse
-)
-from app.schemas.calculation import (
-    CalculationCreate, CalculationUpdate, CalculationResponse,
-    CalculationVersionCreate, CalculationVersionUpdate, CalculationVersionResponse,
-    CalculationDetailResponse
 )
 from app.schemas.stage import (
     StageCreate, StageUpdate, StageResponse,
@@ -21,9 +19,7 @@ __all__ = [
     "RateCategoryCreate", "RateCategoryUpdate", "RateCategoryResponse",
     "WorkCalendarResponse",
     "ProjectCreate", "ProjectUpdate", "ProjectResponse", "ProjectDetailResponse",
-    "CalculationCreate", "CalculationUpdate", "CalculationResponse",
-    "CalculationVersionCreate", "CalculationVersionUpdate", "CalculationVersionResponse",
-    "CalculationDetailResponse",
+    "ProjectVersionCreate", "ProjectVersionUpdate", "ProjectVersionResponse",
     "StageCreate", "StageUpdate", "StageResponse",
     "StageAllocationCreate", "StageAllocationUpdate", "StageAllocationResponse",
     "MonthlyFTECreate", "MonthlyFTEResponse",

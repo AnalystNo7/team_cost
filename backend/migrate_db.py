@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Database migration script: Add Project as top-level entity
-- Creates projects table
-- Adds project_id to calculations
-- Migrates existing calculations to default projects
-- Changes date fields from YYYY-MM strings to Date type
+Database migration script: Simplify structure
+- Remove Calculation entity, link Version directly to Project
+- Rename calculation_versions to project_versions
+- Update stages foreign key
 """
 import sqlite3
-from datetime import date, datetime
+from datetime import datetime
 import shutil
 import os
 
@@ -30,111 +29,80 @@ def migrate():
 
     try:
         # Check if migration is needed
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'")
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='project_versions'")
         if cursor.fetchone():
-            print("Migration already applied (projects table exists)")
+            print("Migration already applied (project_versions table exists)")
+            conn.close()
+            return
+
+        # Check if old tables exist
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='calculation_versions'")
+        has_calc_versions = cursor.fetchone() is not None
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='calculations'")
+        has_calculations = cursor.fetchone() is not None
+
+        if not has_calc_versions and not has_calculations:
+            print("No old tables to migrate")
+            conn.close()
             return
 
         print("Starting migration...")
 
-        # 1. Create projects table
+        # 1. Create project_versions table
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS projects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name VARCHAR(255) NOT NULL,
-                description TEXT,
-                methodology VARCHAR(20) NOT NULL,
-                start_date DATE NOT NULL,
-                end_date DATE NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP
-            )
-        """)
-        print("Created projects table")
-
-        # 2. Get existing calculations
-        cursor.execute("SELECT * FROM calculations")
-        calculations = cursor.fetchall()
-        print(f"Found {len(calculations)} existing calculations")
-
-        # 3. Create temporary table for new calculations schema
-        cursor.execute("""
-            CREATE TABLE calculations_new (
+            CREATE TABLE IF NOT EXISTS project_versions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 project_id INTEGER NOT NULL,
-                name VARCHAR(255) NOT NULL,
-                description TEXT,
-                start_date DATE NOT NULL,
-                end_date DATE NOT NULL,
+                version_number INTEGER NOT NULL,
+                name VARCHAR(100),
+                notes TEXT,
+                is_baseline BOOLEAN DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP,
                 FOREIGN KEY (project_id) REFERENCES projects(id)
             )
         """)
+        print("Created project_versions table")
 
-        # 4. For each calculation, create a project and migrate the calculation
-        for calc in calculations:
-            calc_dict = dict(calc)
-
-            # Parse dates (convert YYYY-MM to YYYY-MM-01)
-            start_date = calc_dict.get('start_month') or calc_dict.get('start_date')
-            end_date = calc_dict.get('end_month') or calc_dict.get('end_date')
-
-            if start_date and '-' in str(start_date) and len(str(start_date)) == 7:
-                start_date = f"{start_date}-01"
-            if end_date and '-' in str(end_date) and len(str(end_date)) == 7:
-                # Use last day of month
-                end_date = f"{end_date}-28"  # Safe for all months
-
-            methodology = calc_dict.get('methodology', 'waterfall')
-
-            # Create project for this calculation
+        # 2. Migrate data from calculation_versions
+        if has_calc_versions and has_calculations:
+            # Get calculations to map to projects
             cursor.execute("""
-                INSERT INTO projects (name, description, methodology, start_date, end_date, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                calc_dict['name'],
-                calc_dict.get('description'),
-                methodology,
-                start_date,
-                end_date,
-                calc_dict.get('created_at', datetime.now().isoformat())
-            ))
-            project_id = cursor.lastrowid
+                SELECT cv.*, c.project_id
+                FROM calculation_versions cv
+                JOIN calculations c ON cv.calculation_id = c.id
+            """)
+            versions = cursor.fetchall()
+            print(f"Found {len(versions)} calculation versions to migrate")
 
-            # Migrate calculation to new table
-            cursor.execute("""
-                INSERT INTO calculations_new (id, project_id, name, description, start_date, end_date, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                calc_dict['id'],
-                project_id,
-                calc_dict['name'],
-                calc_dict.get('description'),
-                start_date,
-                end_date,
-                calc_dict.get('created_at'),
-                calc_dict.get('updated_at')
-            ))
-            print(f"  Migrated calculation '{calc_dict['name']}' to project {project_id}")
+            for v in versions:
+                v_dict = dict(v)
+                cursor.execute("""
+                    INSERT INTO project_versions (id, project_id, version_number, name, notes, is_baseline, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    v_dict['id'],
+                    v_dict['project_id'],
+                    v_dict['version_number'],
+                    v_dict.get('name'),
+                    v_dict.get('notes'),
+                    v_dict.get('is_baseline', 0),
+                    v_dict.get('created_at', datetime.now().isoformat())
+                ))
+            print(f"  Migrated {len(versions)} versions")
 
-        # 5. Drop old calculations table and rename new one
-        cursor.execute("DROP TABLE calculations")
-        cursor.execute("ALTER TABLE calculations_new RENAME TO calculations")
-        print("Replaced calculations table")
-
-        # 6. Update stages table - change start_month/end_month to start_date/end_date
+        # 3. Update stages table foreign key
         cursor.execute("PRAGMA table_info(stages)")
         columns = [col[1] for col in cursor.fetchall()]
 
-        if 'start_month' in columns:
-            print("Migrating stages table...")
+        if 'version_id' in columns:
+            print("Updating stages table foreign key...")
 
             # Get existing stages
             cursor.execute("SELECT * FROM stages")
             stages = cursor.fetchall()
 
-            # Create new stages table
+            # Create new stages table with updated FK
             cursor.execute("""
                 CREATE TABLE stages_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,21 +113,12 @@ def migrate():
                     start_date DATE NOT NULL,
                     end_date DATE NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (version_id) REFERENCES calculation_versions(id)
+                    FOREIGN KEY (version_id) REFERENCES project_versions(id)
                 )
             """)
 
             for stage in stages:
                 stage_dict = dict(stage)
-
-                start_date = stage_dict.get('start_month') or stage_dict.get('start_date')
-                end_date = stage_dict.get('end_month') or stage_dict.get('end_date')
-
-                if start_date and '-' in str(start_date) and len(str(start_date)) == 7:
-                    start_date = f"{start_date}-01"
-                if end_date and '-' in str(end_date) and len(str(end_date)) == 7:
-                    end_date = f"{end_date}-28"
-
                 cursor.execute("""
                     INSERT INTO stages_new (id, version_id, stage_type, name, order_index, start_date, end_date, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -169,14 +128,23 @@ def migrate():
                     stage_dict['stage_type'],
                     stage_dict.get('name'),
                     stage_dict['order_index'],
-                    start_date,
-                    end_date,
+                    stage_dict['start_date'],
+                    stage_dict['end_date'],
                     stage_dict.get('created_at')
                 ))
 
             cursor.execute("DROP TABLE stages")
             cursor.execute("ALTER TABLE stages_new RENAME TO stages")
-            print("Migrated stages table")
+            print("  Updated stages table")
+
+        # 4. Drop old tables
+        if has_calc_versions:
+            cursor.execute("DROP TABLE calculation_versions")
+            print("Dropped calculation_versions table")
+
+        if has_calculations:
+            cursor.execute("DROP TABLE calculations")
+            print("Dropped calculations table")
 
         conn.commit()
         print("\nMigration completed successfully!")

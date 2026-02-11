@@ -4,7 +4,6 @@ import MainLayout from './components/MainLayout'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
-import CalculationDetail from './pages/CalculationDetail'
 import References from './pages/References'
 import Settings from './pages/Settings'
 
@@ -19,7 +18,6 @@ function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/new" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/projects/:projectId/calculations/:id" element={<CalculationDetail />} />
           <Route path="/references" element={<References />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

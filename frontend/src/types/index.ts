@@ -36,6 +36,17 @@ export type StageType =
   | 'mvp_creation'
   | 'mvp_pilot'
 
+export interface ProjectVersion {
+  id: number
+  project_id: number
+  version_number: number
+  name?: string
+  notes?: string
+  is_baseline: boolean
+  created_at: string
+  stages?: Stage[]
+}
+
 export interface Project {
   id: number
   name: string
@@ -45,30 +56,7 @@ export interface Project {
   end_date: string
   created_at: string
   updated_at?: string
-  calculations?: Calculation[]
-}
-
-export interface Calculation {
-  id: number
-  project_id: number
-  name: string
-  description?: string
-  start_date: string
-  end_date: string
-  created_at: string
-  updated_at?: string
-  versions?: CalculationVersion[]
-}
-
-export interface CalculationVersion {
-  id: number
-  calculation_id: number
-  version_number: number
-  name?: string
-  notes?: string
-  is_baseline: boolean
-  created_at: string
-  stages?: Stage[]
+  versions?: ProjectVersion[]
 }
 
 export interface MonthlyFTE {
@@ -145,9 +133,9 @@ export interface StageCostResult {
 }
 
 export interface CostCalculationResult {
-  calculation_id: number
+  project_id: number
   version_id: number
-  calculation_name: string
+  project_name: string
   methodology: string
   start_date: string
   end_date: string

@@ -9,7 +9,6 @@ from app.routers import (
     rate_categories_router,
     calendar_router,
     projects_router,
-    calculations_router,
     export_router,
 )
 from app.utils import init_default_data
@@ -51,7 +50,6 @@ app.include_router(roles_router, prefix="/api")
 app.include_router(rate_categories_router, prefix="/api")
 app.include_router(calendar_router, prefix="/api")
 app.include_router(projects_router, prefix="/api")
-app.include_router(calculations_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
 
 

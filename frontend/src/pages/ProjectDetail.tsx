@@ -4,33 +4,54 @@ import {
   Card,
   Button,
   Space,
-  Typography,
   Spin,
   message,
-  Table,
+  Collapse,
+  Select,
+  Typography,
+  DatePicker,
   Modal,
   Form,
   Input,
-  DatePicker,
-  Popconfirm,
   Tag,
-  Descriptions,
+  Divider,
 } from 'antd'
 import {
   ArrowLeftOutlined,
   PlusOutlined,
+  FilePdfOutlined,
+  FileExcelOutlined,
   EditOutlined,
-  DeleteOutlined,
-  CalculatorOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { projectsApi, calculationsApi } from '../services/api'
-import type { Project, Calculation } from '../types'
+import {
+  projectsApi,
+  versionsApi,
+  stagesApi,
+  allocationsApi,
+  rolesApi,
+  rateCategoriesApi,
+  calendarApi,
+  costApi,
+  exportApi,
+} from '../services/api'
+import type {
+  Project,
+  ProjectVersion,
+  Stage,
+  StageAllocation,
+  Role,
+  RateCategory,
+  WorkCalendarEntry,
+  CostCalculationResult,
+} from '../types'
+import { WATERFALL_STAGES, AGILE_STAGES, STAGE_NAMES } from '../types'
 import WorkflowDiagram from '../components/WorkflowDiagram'
+import AllocationTable from '../components/AllocationTable'
+import CostSummary from '../components/CostSummary'
 
-const { Title } = Typography
+const { Title, Text } = Typography
 const { RangePicker } = DatePicker
-const { TextArea } = Input
 
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -38,153 +59,216 @@ const ProjectDetail: React.FC = () => {
   const projectId = Number(id)
 
   const [project, setProject] = useState<Project | null>(null)
-  const [calculations, setCalculations] = useState<Calculation[]>([])
+  const [versions, setVersions] = useState<ProjectVersion[]>([])
+  const [currentVersionId, setCurrentVersionId] = useState<number | null>(null)
+  const [stages, setStages] = useState<Stage[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
+  const [rateCategories, setRateCategories] = useState<RateCategory[]>([])
+  const [months, setMonths] = useState<WorkCalendarEntry[]>([])
+  const [costResult, setCostResult] = useState<CostCalculationResult | null>(null)
   const [loading, setLoading] = useState(true)
-  const [calcModalOpen, setCalcModalOpen] = useState(false)
-  const [editingCalc, setEditingCalc] = useState<Calculation | null>(null)
-  const [form] = Form.useForm()
+  const [activeStageIndex, setActiveStageIndex] = useState(0)
+  const [stageModalOpen, setStageModalOpen] = useState(false)
+  const [stageForm] = Form.useForm()
+  const [versionEditModalOpen, setVersionEditModalOpen] = useState(false)
+  const [versionEditForm] = Form.useForm()
 
   useEffect(() => {
-    loadProject()
+    loadInitialData()
   }, [projectId])
 
-  const loadProject = async () => {
+  useEffect(() => {
+    if (currentVersionId) {
+      loadStages()
+      loadCostResult()
+    }
+  }, [currentVersionId])
+
+  const loadInitialData = async () => {
     try {
       setLoading(true)
-      const [projectRes, calcsRes] = await Promise.all([
+      const [projectRes, rolesRes, ratesRes] = await Promise.all([
         projectsApi.getById(projectId),
-        calculationsApi.getAll(projectId),
+        rolesApi.getAll(),
+        rateCategoriesApi.getAll(),
       ])
+
       setProject(projectRes.data)
-      setCalculations(calcsRes.data)
+      setRoles(rolesRes.data)
+      setRateCategories(ratesRes.data)
+      setVersions(projectRes.data.versions || [])
+
+      // Load calendar for project period
+      const startMonth = projectRes.data.start_date.substring(0, 7)
+      const endMonth = projectRes.data.end_date.substring(0, 7)
+      const calendarRes = await calendarApi.getRange(startMonth, endMonth)
+      setMonths(calendarRes.data)
+
+      // Select first version or create one
+      if (projectRes.data.versions && projectRes.data.versions.length > 0) {
+        setCurrentVersionId(projectRes.data.versions[0].id)
+      } else {
+        // Create initial version
+        const versionRes = await versionsApi.create(projectId, {
+          name: 'Базовая версия',
+          is_baseline: true,
+        })
+        setVersions([versionRes.data])
+        setCurrentVersionId(versionRes.data.id)
+      }
     } catch (error) {
-      message.error('Ошибка загрузки проекта')
+      message.error('Ошибка загрузки данных')
       console.error(error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleCreateCalc = () => {
-    setEditingCalc(null)
-    form.resetFields()
-    if (project) {
-      form.setFieldsValue({
-        period: [dayjs(project.start_date), dayjs(project.end_date)],
-      })
-    }
-    setCalcModalOpen(true)
-  }
-
-  const handleEditCalc = (calc: Calculation) => {
-    setEditingCalc(calc)
-    form.setFieldsValue({
-      name: calc.name,
-      description: calc.description,
-      period: [dayjs(calc.start_date), dayjs(calc.end_date)],
-    })
-    setCalcModalOpen(true)
-  }
-
-  const handleDeleteCalc = async (calcId: number) => {
+  const loadStages = async () => {
+    if (!currentVersionId) return
     try {
-      await calculationsApi.delete(projectId, calcId)
-      message.success('Расчёт удалён')
-      loadProject()
+      const response = await stagesApi.getAll(projectId, currentVersionId)
+      setStages(response.data)
     } catch (error) {
-      message.error('Ошибка удаления расчёта')
+      console.error('Failed to load stages:', error)
     }
   }
 
-  const handleSubmitCalc = async () => {
+  const loadCostResult = async () => {
+    if (!currentVersionId) return
     try {
-      const values = await form.validateFields()
-      const data = {
+      const response = await costApi.calculate(projectId, currentVersionId)
+      setCostResult(response.data)
+    } catch (error) {
+      console.error('Failed to calculate cost:', error)
+    }
+  }
+
+  const handleAddStage = async () => {
+    if (!project || !currentVersionId) return
+
+    try {
+      const values = await stageForm.validateFields()
+      const stageData: Partial<Stage> = {
+        stage_type: values.stage_type,
         name: values.name,
-        description: values.description,
+        order_index: stages.length,
         start_date: values.period[0].format('YYYY-MM-DD'),
         end_date: values.period[1].format('YYYY-MM-DD'),
+        allocations: [],
       }
 
-      if (editingCalc) {
-        await calculationsApi.update(projectId, editingCalc.id, data)
-        message.success('Расчёт обновлён')
-      } else {
-        await calculationsApi.create(projectId, data)
-        message.success('Расчёт создан')
-      }
-
-      setCalcModalOpen(false)
-      loadProject()
+      await stagesApi.create(projectId, currentVersionId, stageData)
+      message.success('Этап добавлен')
+      setStageModalOpen(false)
+      stageForm.resetFields()
+      loadStages()
+      loadCostResult()
     } catch (error) {
-      message.error('Ошибка сохранения расчёта')
+      message.error('Ошибка добавления этапа')
     }
   }
 
-  const columns = [
-    {
-      title: 'Название расчёта',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string, record: Calculation) => (
-        <a onClick={() => navigate(`/projects/${projectId}/calculations/${record.id}`)}>
-          {text}
-        </a>
-      ),
-    },
-    {
-      title: 'Период',
-      key: 'period',
-      render: (_: unknown, record: Calculation) => (
-        <span>{record.start_date} — {record.end_date}</span>
-      ),
-    },
-    {
-      title: 'Версий',
-      key: 'versions',
-      render: (_: unknown, record: Calculation) => (
-        <Tag>{record.versions?.length || 0}</Tag>
-      ),
-    },
-    {
-      title: 'Создан',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (date: string) => {
-        const d = new Date(date)
-        return `${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
-      },
-    },
-    {
-      title: 'Действия',
-      key: 'actions',
-      render: (_: unknown, record: Calculation) => (
-        <Space>
-          <Button
-            icon={<CalculatorOutlined />}
-            onClick={() => navigate(`/projects/${projectId}/calculations/${record.id}`)}
-          >
-            Открыть
-          </Button>
-          <Button
-            icon={<EditOutlined />}
-            onClick={(e) => {
-              e.stopPropagation()
-              handleEditCalc(record)
-            }}
-          />
-          <Popconfirm
-            title="Удалить расчёт?"
-            onConfirm={() => handleDeleteCalc(record.id)}
-            okText="Да"
-            cancelText="Нет"
-          >
-            <Button danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ]
+  const handleAddAllocation = async (stageId: number, allocation: Partial<StageAllocation>) => {
+    if (!currentVersionId) return
+    try {
+      await allocationsApi.create(projectId, currentVersionId, stageId, allocation)
+      loadStages()
+      loadCostResult()
+    } catch (error) {
+      message.error('Ошибка добавления участника')
+    }
+  }
+
+  const handleUpdateAllocation = async (
+    stageId: number,
+    allocId: number,
+    data: Partial<StageAllocation>
+  ) => {
+    if (!currentVersionId) return
+    try {
+      await allocationsApi.update(projectId, currentVersionId, stageId, allocId, data)
+      loadStages()
+      loadCostResult()
+    } catch (error) {
+      message.error('Ошибка обновления')
+    }
+  }
+
+  const handleDeleteAllocation = async (stageId: number, allocId: number) => {
+    if (!currentVersionId) return
+    try {
+      await allocationsApi.delete(projectId, currentVersionId, stageId, allocId)
+      loadStages()
+      loadCostResult()
+    } catch (error) {
+      message.error('Ошибка удаления')
+    }
+  }
+
+  const handleEditVersion = () => {
+    const currentVersion = versions.find(v => v.id === currentVersionId)
+    if (currentVersion) {
+      versionEditForm.setFieldsValue({
+        name: currentVersion.name || 'Базовая версия',
+        notes: currentVersion.notes || '',
+      })
+      setVersionEditModalOpen(true)
+    }
+  }
+
+  const handleUpdateVersion = async () => {
+    if (!currentVersionId) return
+    try {
+      const values = await versionEditForm.validateFields()
+      await versionsApi.update(projectId, currentVersionId, values)
+      message.success('Версия обновлена')
+      setVersionEditModalOpen(false)
+      // Reload project to update versions list
+      const projectRes = await projectsApi.getById(projectId)
+      setVersions(projectRes.data.versions || [])
+    } catch (error) {
+      message.error('Ошибка обновления версии')
+    }
+  }
+
+  const handleCreateNewVersion = async () => {
+    try {
+      const versionRes = await versionsApi.create(projectId, {
+        name: `Версия ${versions.length + 1}`,
+        is_baseline: false,
+      })
+      const updatedVersions = [...versions, versionRes.data]
+      setVersions(updatedVersions)
+      setCurrentVersionId(versionRes.data.id)
+      message.success('Новая версия создана')
+    } catch (error) {
+      message.error('Ошибка создания версии')
+    }
+  }
+
+  const formatVersionLabel = (v: ProjectVersion) => {
+    return `v${v.version_number}: ${v.name || 'Базовая версия'}`
+  }
+
+  const getCurrentVersionCreatedAt = () => {
+    const currentVersion = versions.find(v => v.id === currentVersionId)
+    if (currentVersion) {
+      const createdAt = new Date(currentVersion.created_at)
+      return createdAt.toLocaleDateString('ru-RU') + ' ' +
+             createdAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    }
+    return ''
+  }
+
+  const templateStages = project?.methodology === 'waterfall' ? WATERFALL_STAGES : AGILE_STAGES
+
+  // Get months from stage dates for allocation table
+  const getStageMonths = (stage: Stage) => {
+    const startMonth = stage.start_date.substring(0, 7)
+    const endMonth = stage.end_date.substring(0, 7)
+    return months.filter(m => m.year_month >= startMonth && m.year_month <= endMonth)
+  }
 
   if (loading) {
     return (
@@ -215,84 +299,175 @@ const ProjectDetail: React.FC = () => {
                 {project.methodology.toUpperCase()}
               </Tag>
             </Space>
+            <Space>
+              <Select
+                style={{ width: 250 }}
+                value={currentVersionId}
+                onChange={setCurrentVersionId}
+                dropdownRender={(menu) => (
+                  <>
+                    {menu}
+                    <Divider style={{ margin: '8px 0' }} />
+                    <Button
+                      type="text"
+                      icon={<PlusOutlined />}
+                      onClick={handleCreateNewVersion}
+                      style={{ width: '100%' }}
+                    >
+                      Новая версия
+                    </Button>
+                  </>
+                )}
+                options={versions.map(v => ({
+                  value: v.id,
+                  label: formatVersionLabel(v),
+                }))}
+              />
+              <Button
+                icon={<EditOutlined />}
+                onClick={handleEditVersion}
+                disabled={!currentVersionId}
+              />
+              <Button
+                icon={<FileExcelOutlined />}
+                href={currentVersionId ? exportApi.excel(projectId, currentVersionId) : undefined}
+              >
+                Excel
+              </Button>
+              <Button
+                icon={<FilePdfOutlined />}
+                href={currentVersionId ? exportApi.pdf(projectId, currentVersionId) : undefined}
+              >
+                PDF
+              </Button>
+            </Space>
           </Space>
-        </Card>
-
-        {/* Project Info */}
-        <Card title="Информация о проекте">
-          <Descriptions column={2}>
-            <Descriptions.Item label="Методология">
-              {project.methodology.toUpperCase()}
-            </Descriptions.Item>
-            <Descriptions.Item label="Период">
-              {project.start_date} — {project.end_date}
-            </Descriptions.Item>
-            <Descriptions.Item label="Описание" span={2}>
-              {project.description || 'Нет описания'}
-            </Descriptions.Item>
-          </Descriptions>
+          {currentVersionId && (
+            <Text type="secondary" style={{ marginTop: 8, display: 'block' }}>
+              Создано: {getCurrentVersionCreatedAt()}
+            </Text>
+          )}
         </Card>
 
         {/* Workflow */}
         <Card title="Workflow проекта">
           <WorkflowDiagram
             methodology={project.methodology}
-            stages={[]}
-            activeStageIndex={-1}
+            stages={stages}
+            activeStageIndex={activeStageIndex}
+            onStageClick={setActiveStageIndex}
           />
         </Card>
 
-        {/* Calculations */}
+        {/* Stages */}
         <Card
-          title="Расчёты проекта"
+          title="Этапы проекта"
           extra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateCalc}>
-              Новый расчёт
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setStageModalOpen(true)}>
+              Добавить этап
             </Button>
           }
         >
-          <Table
-            columns={columns}
-            dataSource={calculations}
-            rowKey="id"
-            pagination={false}
-            locale={{ emptyText: 'Нет расчётов. Создайте первый расчёт.' }}
+          <Collapse
+            accordion
+            items={stages.map((stage) => ({
+              key: stage.id,
+              label: (
+                <Space>
+                  <span>{stage.name || STAGE_NAMES[stage.stage_type]}</span>
+                  <Text type="secondary">
+                    ({stage.start_date} — {stage.end_date})
+                  </Text>
+                </Space>
+              ),
+              children: (
+                <AllocationTable
+                  allocations={stage.allocations}
+                  roles={roles}
+                  rateCategories={rateCategories}
+                  months={getStageMonths(stage)}
+                  onAdd={alloc => handleAddAllocation(stage.id!, alloc)}
+                  onUpdate={(allocId, data) =>
+                    handleUpdateAllocation(stage.id!, allocId, data)
+                  }
+                  onDelete={allocId => handleDeleteAllocation(stage.id!, allocId)}
+                />
+              ),
+            }))}
           />
         </Card>
+
+        {/* Cost Summary */}
+        {costResult && <CostSummary result={costResult} />}
       </Space>
 
-      {/* Create/Edit Calculation Modal */}
+      {/* Add Stage Modal */}
       <Modal
-        title={editingCalc ? 'Редактировать расчёт' : 'Новый расчёт'}
-        open={calcModalOpen}
-        onOk={handleSubmitCalc}
-        onCancel={() => setCalcModalOpen(false)}
-        okText={editingCalc ? 'Сохранить' : 'Создать'}
+        title="Добавить этап"
+        open={stageModalOpen}
+        onOk={handleAddStage}
+        onCancel={() => setStageModalOpen(false)}
+        okText="Добавить"
         cancelText="Отмена"
-        width={600}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 20 }}>
+        <Form form={stageForm} layout="vertical" style={{ marginTop: 20 }}>
           <Form.Item
-            name="name"
-            label="Название расчёта"
-            rules={[{ required: true, message: 'Введите название' }]}
+            name="stage_type"
+            label="Тип этапа"
+            rules={[{ required: true, message: 'Выберите тип' }]}
           >
-            <Input placeholder="Например: Базовый расчёт, Оптимистичный сценарий" />
+            <Select>
+              {templateStages.map(s => (
+                <Select.Option
+                  key={s.type}
+                  value={s.type}
+                  style={{ paddingLeft: s.isSubstage ? 24 : 8 }}
+                >
+                  {s.name}
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
-
-          <Form.Item name="description" label="Описание">
-            <TextArea rows={2} placeholder="Описание расчёта" />
+          <Form.Item name="name" label="Название (опционально)">
+            <Input placeholder="Кастомное название этапа" />
           </Form.Item>
-
           <Form.Item
             name="period"
-            label="Период расчёта"
+            label="Период"
             rules={[{ required: true, message: 'Укажите период' }]}
           >
             <RangePicker
               style={{ width: '100%' }}
               format="DD.MM.YYYY"
+              disabledDate={date => {
+                const start = dayjs(project.start_date)
+                const end = dayjs(project.end_date)
+                return date.isBefore(start, 'day') || date.isAfter(end, 'day')
+              }}
             />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Edit Version Modal */}
+      <Modal
+        title="Редактировать версию"
+        open={versionEditModalOpen}
+        onOk={handleUpdateVersion}
+        onCancel={() => setVersionEditModalOpen(false)}
+        okText="Сохранить"
+        cancelText="Отмена"
+      >
+        <Form form={versionEditForm} layout="vertical" style={{ marginTop: 20 }}>
+          <Form.Item
+            name="name"
+            label="Название версии"
+            rules={[{ required: true, message: 'Введите название версии' }]}
+          >
+            <Input placeholder="Например: Базовая версия" />
+          </Form.Item>
+          <Form.Item name="notes" label="Примечания">
+            <Input.TextArea rows={3} placeholder="Дополнительные примечания к версии" />
           </Form.Item>
         </Form>
       </Modal>

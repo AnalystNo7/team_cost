@@ -30,7 +30,7 @@ class Stage(Base):
     __tablename__ = "stages"
 
     id = Column(Integer, primary_key=True, index=True)
-    version_id = Column(Integer, ForeignKey("calculation_versions.id"), nullable=False)
+    version_id = Column(Integer, ForeignKey("project_versions.id"), nullable=False)
     stage_type = Column(Enum(StageType), nullable=False)
     name = Column(String(100), nullable=True)  # Custom name override
     order_index = Column(Integer, nullable=False)  # For ordering, especially for repeated stages
@@ -38,7 +38,7 @@ class Stage(Base):
     end_date = Column(Date, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    version = relationship("CalculationVersion", back_populates="stages")
+    version = relationship("ProjectVersion", back_populates="stages")
     allocations = relationship("StageAllocation", back_populates="stage", cascade="all, delete-orphan")
 
 
