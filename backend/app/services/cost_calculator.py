@@ -275,7 +275,7 @@ class CostCalculatorService:
 
         for fte_record in allocation.monthly_fte:
             year, month = CalendarService.parse_year_month(fte_record.year_month)
-            working_hours = CalendarService.get_working_hours(year, month)
+            working_hours = CalendarService.get_working_hours(year, month, db)
             fte = Decimal(str(fte_record.fte_value))
 
             if allocation.resource_type.value == "internal":

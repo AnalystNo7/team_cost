@@ -4,7 +4,7 @@ Contains working days data for 2025-2035
 Source: consultant.ru / government decrees (for known years)
 Future years use typical patterns based on historical data
 """
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 from datetime import date
 from sqlalchemy.orm import Session
 from app.models import WorkCalendar
@@ -64,17 +64,26 @@ WORK_CALENDAR_DATA: Dict[int, Dict[int, int]] = {
 
 class CalendarService:
     @staticmethod
-    def get_working_days(year: int, month: int) -> int:
-        """Get working days for a specific month"""
+    def get_working_days(year: int, month: int, db: Optional[Session] = None) -> int:
+        """Get working days for a specific month. Reads from DB first, falls back to hardcoded data."""
+        if db is not None:
+            entry = db.query(WorkCalendar).filter(
+                WorkCalendar.year == year,
+                WorkCalendar.month == month
+            ).first()
+            if entry:
+                return entry.working_days
+
+        # Fallback to hardcoded data
         if year in WORK_CALENDAR_DATA and month in WORK_CALENDAR_DATA[year]:
             return WORK_CALENDAR_DATA[year][month]
         # Fallback: approximate calculation (average ~21 days)
         return 21
 
     @staticmethod
-    def get_working_hours(year: int, month: int) -> int:
-        """Get working hours for a specific month (8 hours per day)"""
-        return CalendarService.get_working_days(year, month) * 8
+    def get_working_hours(year: int, month: int, db: Optional[Session] = None) -> int:
+        """Get working hours for a specific month (8 hours per day). Reads from DB first."""
+        return CalendarService.get_working_days(year, month, db) * 8
 
     @staticmethod
     def parse_year_month(year_month: str) -> Tuple[int, int]:
