@@ -15,6 +15,8 @@ import {
   Input,
   Tag,
   Divider,
+  Popconfirm,
+  Tooltip,
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -22,6 +24,10 @@ import {
   FilePdfOutlined,
   FileExcelOutlined,
   EditOutlined,
+  DeleteOutlined,
+  CopyOutlined,
+  CheckOutlined,
+  CloseOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
@@ -72,6 +78,8 @@ const ProjectDetail: React.FC = () => {
   const [stageForm] = Form.useForm()
   const [versionEditModalOpen, setVersionEditModalOpen] = useState(false)
   const [versionEditForm] = Form.useForm()
+  const [editingVersionId, setEditingVersionId] = useState<number | null>(null)
+  const [editingVersionName, setEditingVersionName] = useState('')
 
   useEffect(() => {
     loadInitialData()
@@ -247,6 +255,58 @@ const ProjectDetail: React.FC = () => {
     }
   }
 
+  const handleDeleteVersion = async (versionId: number) => {
+    try {
+      await versionsApi.delete(projectId, versionId)
+      const updatedVersions = versions.filter(v => v.id !== versionId)
+      setVersions(updatedVersions)
+      if (currentVersionId === versionId) {
+        setCurrentVersionId(updatedVersions.length > 0 ? updatedVersions[0].id : null)
+        if (updatedVersions.length === 0) {
+          setStages([])
+          setCostResult(null)
+        }
+      }
+      message.success('Версия удалена')
+    } catch (error) {
+      message.error('Ошибка удаления версии')
+    }
+  }
+
+  const handleCopyVersion = async (versionId: number) => {
+    try {
+      const res = await versionsApi.copy(projectId, versionId)
+      const updatedVersions = [...versions, res.data]
+      setVersions(updatedVersions)
+      setCurrentVersionId(res.data.id)
+      message.success('Версия скопирована')
+    } catch (error) {
+      message.error('Ошибка копирования версии')
+    }
+  }
+
+  const startInlineEdit = (v: ProjectVersion) => {
+    setEditingVersionId(v.id)
+    setEditingVersionName(v.name || 'Версия ' + v.version_number)
+  }
+
+  const saveInlineEdit = async () => {
+    if (!editingVersionId) return
+    try {
+      await versionsApi.update(projectId, editingVersionId, { name: editingVersionName })
+      setVersions(versions.map(v =>
+        v.id === editingVersionId ? { ...v, name: editingVersionName } : v
+      ))
+      setEditingVersionId(null)
+    } catch (error) {
+      message.error('Ошибка переименования')
+    }
+  }
+
+  const cancelInlineEdit = () => {
+    setEditingVersionId(null)
+  }
+
   const formatVersionLabel = (v: ProjectVersion) => {
     return `v${v.version_number}: ${v.name || 'Версия ' + v.version_number}`
   }
@@ -301,9 +361,12 @@ const ProjectDetail: React.FC = () => {
             </Space>
             <Space>
               <Select
-                style={{ width: 250 }}
+                style={{ width: 400 }}
                 value={currentVersionId}
-                onChange={setCurrentVersionId}
+                onChange={(val) => {
+                  if (editingVersionId) return
+                  setCurrentVersionId(val)
+                }}
                 dropdownRender={(menu) => (
                   <>
                     {menu}
@@ -318,15 +381,71 @@ const ProjectDetail: React.FC = () => {
                     </Button>
                   </>
                 )}
+                optionRender={(option) => {
+                  const v = versions.find(ver => ver.id === option.value)
+                  if (!v) return option.label
+                  const isEditing = editingVersionId === v.id
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 4 }}
+                             onClick={e => e.stopPropagation()}>
+                          <span style={{ whiteSpace: 'nowrap' }}>v{v.version_number}:</span>
+                          <Input
+                            size="small"
+                            value={editingVersionName}
+                            onChange={e => setEditingVersionName(e.target.value)}
+                            onPressEnter={saveInlineEdit}
+                            onKeyDown={e => { if (e.key === 'Escape') cancelInlineEdit() }}
+                            autoFocus
+                            style={{ flex: 1 }}
+                          />
+                          <Button type="text" size="small" icon={<CheckOutlined />}
+                                  onClick={saveInlineEdit} style={{ color: '#52c41a' }} />
+                          <Button type="text" size="small" icon={<CloseOutlined />}
+                                  onClick={cancelInlineEdit} />
+                        </div>
+                      ) : (
+                        <>
+                          <span
+                            onDoubleClick={(e) => {
+                              e.stopPropagation()
+                              startInlineEdit(v)
+                            }}
+                            style={{ flex: 1 }}
+                          >
+                            {formatVersionLabel(v)}
+                          </span>
+                          <Space size={0} onClick={e => e.stopPropagation()}>
+                            <Tooltip title="Переименовать">
+                              <Button type="text" size="small" icon={<EditOutlined />}
+                                      onClick={() => startInlineEdit(v)} />
+                            </Tooltip>
+                            <Tooltip title="Копировать">
+                              <Button type="text" size="small" icon={<CopyOutlined />}
+                                      onClick={() => handleCopyVersion(v.id)} />
+                            </Tooltip>
+                            <Tooltip title="Удалить">
+                              <Popconfirm
+                                title="Удалить версию?"
+                                description="Все этапы и данные будут удалены"
+                                onConfirm={() => handleDeleteVersion(v.id)}
+                                okText="Удалить"
+                                cancelText="Отмена"
+                              >
+                                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                              </Popconfirm>
+                            </Tooltip>
+                          </Space>
+                        </>
+                      )}
+                    </div>
+                  )
+                }}
                 options={versions.map(v => ({
                   value: v.id,
                   label: formatVersionLabel(v),
                 }))}
-              />
-              <Button
-                icon={<EditOutlined />}
-                onClick={handleEditVersion}
-                disabled={!currentVersionId}
               />
               <Button
                 icon={<FileExcelOutlined />}

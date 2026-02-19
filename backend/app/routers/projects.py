@@ -155,6 +155,87 @@ def delete_version(project_id: int, version_id: int, db: Session = Depends(get_d
     return {"message": "Version deleted"}
 
 
+@router.post("/{project_id}/versions/{version_id}/copy", response_model=ProjectVersionResponse)
+def copy_version(project_id: int, version_id: int, db: Session = Depends(get_db)):
+    """Copy version with all stages, allocations, and FTE data"""
+    from sqlalchemy import func
+
+    # Get source version
+    source_version = db.query(ProjectVersion).filter(
+        ProjectVersion.id == version_id,
+        ProjectVersion.project_id == project_id
+    ).first()
+    if not source_version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    # Get next version number
+    max_version_num = db.query(func.max(ProjectVersion.version_number)).filter(
+        ProjectVersion.project_id == project_id
+    ).scalar()
+    next_version = (max_version_num or 0) + 1
+
+    # Create new version
+    new_version = ProjectVersion(
+        project_id=project_id,
+        version_number=next_version,
+        name=f"{source_version.name or 'Версия ' + str(source_version.version_number)} (копия)",
+        notes=source_version.notes,
+        is_baseline=False
+    )
+    db.add(new_version)
+    db.commit()
+    db.refresh(new_version)
+
+    # Copy stages
+    source_stages = db.query(Stage).filter(Stage.version_id == version_id).all()
+    for source_stage in source_stages:
+        new_stage = Stage(
+            version_id=new_version.id,
+            name=source_stage.name,
+            stage_type=source_stage.stage_type,
+            order_index=source_stage.order_index
+        )
+        db.add(new_stage)
+        db.commit()
+        db.refresh(new_stage)
+
+        # Copy allocations
+        source_allocations = db.query(StageAllocation).filter(
+            StageAllocation.stage_id == source_stage.id
+        ).all()
+        for source_alloc in source_allocations:
+            new_alloc = StageAllocation(
+                stage_id=new_stage.id,
+                role_id=source_alloc.role_id,
+                rate_category_id=source_alloc.rate_category_id,
+                resource_type=source_alloc.resource_type,
+                resource_name=source_alloc.resource_name,
+                monthly_salary=source_alloc.monthly_salary,
+                bonus_percent=source_alloc.bonus_percent,
+                hourly_rate=source_alloc.hourly_rate,
+                fixed_monthly_cost=source_alloc.fixed_monthly_cost
+            )
+            db.add(new_alloc)
+            db.commit()
+            db.refresh(new_alloc)
+
+            # Copy monthly FTE
+            source_ftes = db.query(MonthlyFTE).filter(
+                MonthlyFTE.allocation_id == source_alloc.id
+            ).all()
+            for source_fte in source_ftes:
+                new_fte = MonthlyFTE(
+                    allocation_id=new_alloc.id,
+                    year_month=source_fte.year_month,
+                    fte=source_fte.fte
+                )
+                db.add(new_fte)
+
+    db.commit()
+    db.refresh(new_version)
+    return new_version
+
+
 # ============ Stages ============
 
 @router.get("/{project_id}/versions/{version_id}/stages", response_model=List[StageResponse])

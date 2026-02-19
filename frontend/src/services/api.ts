@@ -61,6 +61,8 @@ export const versionsApi = {
     api.put<ProjectVersion>(`/projects/${projectId}/versions/${versionId}`, data),
   delete: (projectId: number, versionId: number) =>
     api.delete(`/projects/${projectId}/versions/${versionId}`),
+  copy: (projectId: number, versionId: number) =>
+    api.post<ProjectVersion>(`/projects/${projectId}/versions/${versionId}/copy`),
 }
 
 // Stages
