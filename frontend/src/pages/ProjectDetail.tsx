@@ -118,7 +118,7 @@ const ProjectDetail: React.FC = () => {
       } else {
         // Create initial version
         const versionRes = await versionsApi.create(projectId, {
-          name: 'Базовая версия',
+          name: 'v1',
           is_baseline: true,
         })
         setVersions([versionRes.data])
@@ -242,8 +242,10 @@ const ProjectDetail: React.FC = () => {
 
   const handleCreateNewVersion = async () => {
     try {
+      // Find next version number (max existing + 1)
+      const maxNum = versions.reduce((max, v) => Math.max(max, v.version_number), 0)
       const versionRes = await versionsApi.create(projectId, {
-        name: `Версия ${versions.length + 1}`,
+        name: `v${maxNum + 1}`,
         is_baseline: false,
       })
       const updatedVersions = [...versions, versionRes.data]
@@ -287,7 +289,7 @@ const ProjectDetail: React.FC = () => {
 
   const startInlineEdit = (v: ProjectVersion) => {
     setEditingVersionId(v.id)
-    setEditingVersionName(v.name || 'Версия ' + v.version_number)
+    setEditingVersionName(v.name || 'v' + v.version_number)
   }
 
   const saveInlineEdit = async () => {
@@ -308,7 +310,7 @@ const ProjectDetail: React.FC = () => {
   }
 
   const formatVersionLabel = (v: ProjectVersion) => {
-    return `v${v.version_number}: ${v.name || 'Версия ' + v.version_number}`
+    return v.name || 'v' + v.version_number
   }
 
   const getCurrentVersionCreatedAt = () => {
@@ -390,7 +392,6 @@ const ProjectDetail: React.FC = () => {
                       {isEditing ? (
                         <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 4 }}
                              onClick={e => e.stopPropagation()}>
-                          <span style={{ whiteSpace: 'nowrap' }}>v{v.version_number}:</span>
                           <Input
                             size="small"
                             value={editingVersionName}

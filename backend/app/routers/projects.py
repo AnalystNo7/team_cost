@@ -178,7 +178,7 @@ def copy_version(project_id: int, version_id: int, db: Session = Depends(get_db)
     new_version = ProjectVersion(
         project_id=project_id,
         version_number=next_version,
-        name=f"{source_version.name or 'Версия ' + str(source_version.version_number)} (копия)",
+        name=f"{source_version.name or 'v' + str(source_version.version_number)} (копия)",
         notes=source_version.notes,
         is_baseline=False
     )
