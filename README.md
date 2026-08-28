@@ -55,8 +55,4 @@
 ```
 
 
-Результат: `installer/TeamCostCalculator/`
 
-## Лицензия
-
-MIT License
